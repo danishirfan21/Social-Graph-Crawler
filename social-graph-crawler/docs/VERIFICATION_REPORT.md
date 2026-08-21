@@ -28,6 +28,14 @@ No coverage percentage, performance number, Docker success, or live external API
 
 Added `.devcontainer/devcontainer.json` using the official Docker-in-Docker devcontainer feature and forwarding 8000, 5432, and 6379. Added `scripts/verify_codespaces.sh`, which starts Compose, waits for health checks, runs Alembic, checks `/health` and `/ready`, runs the fixture job, queries PostgreSQL directly, and runs tests inside the backend container.
 
+Static checks actually run for this addition:
+
+| Command | Result |
+|---|---|
+| `python -m json.tool .devcontainer/devcontainer.json` | Passed. |
+| `bash -n scripts/verify_codespaces.sh` | Passed. |
+| `$env:PYTHONPATH='backend'; .\.venv\Scripts\python -m pytest backend\tests --no-cov` | **8 passed**. |
+
 The Docker image was corrected to include Alembic/config/test files and to use a standard-library health check instead of the undeclared `requests` package. Compose now health-checks the backend readiness endpoint and no longer uses fixed container or network names, which makes it safer for Codespaces projects.
 
 `docker`, `docker compose config`, and container execution were **not run** here: the Docker CLI is not installed on this Windows machine. Therefore PostgreSQL, Redis, backend container startup, migrations against a live PostgreSQL container, fixture persistence in Compose, and containerized tests remain unverified until `./scripts/verify_codespaces.sh` is run in a Codespace.
