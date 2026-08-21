@@ -1,8 +1,8 @@
 # V2 implementation plan
 
-## Current flow
+## Implemented flow
 
-`POST /crawl/start` writes a `crawl_jobs` row and schedules FastAPI `BackgroundTasks`. The process-local task opens a new database session and runs a crawler. Discovery state is held in crawler memory. A process restart therefore loses queued/in-progress work; Redis is only used for readiness/cache connectivity.
+`POST /crawl/start` writes a `crawl_jobs` row and deduplicated PostgreSQL frontier rows, commits them, then enqueues one ARQ task per frontier item. Redis distributes tasks to worker containers. Each worker claims a specific row under a lease, persists terminal or retry state, and PostgreSQL finalizes the parent when no non-terminal rows remain.
 
 ## V2 flow
 

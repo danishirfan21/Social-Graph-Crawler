@@ -87,3 +87,14 @@ The verifier now creates `v2-demo-<epoch>-<shell-pid>` for every run. The fixtur
 The next Codespaces diagnostic proved ARQ enqueue/consumption and all four terminal frontier outcomes: `success` and `duplicate` completed once, `transient` completed on attempt three, and `permanent` failed once. The parent remained `running`. The former ORM-side aggregator was replaced with an explicit PostgreSQL finalization check: it flushes the current worker update, counts persisted frontier states, and conditionally updates an active parent to `completed` only when no `queued` or `processing` rows remain. Repeated concurrent calls are safe because the conditional update is idempotent.
 
 Chosen semantics: a job is `completed` when all work is terminal, including a mix of completed and permanently failed items. Individual failures remain visible through `/failures`, and `error_message` reports their count. `entity_count` is the persisted count of successfully completed frontier items in V2; it is not presented as a graph-node count. A new database-backed test verifies queued retry work keeps the parent running, final terminal work completes it, permanent failure is recorded, and repeated finalization is harmless. Local suite result: **11 passed**. This finalization repair still needs a live Codespaces rerun before V2 end-to-end success is claimed.
+
+## Successful V2 Codespaces verification — reported 2026-08-21
+
+The complete V2 verifier was subsequently run successfully in GitHub Codespaces and ended with:
+
+```text
+V2 VERIFY SUCCEEDED:
+API PostgreSQL Redis workers migrations crawl-frontier fixture-retry duplicate-protection persistence metrics tests
+```
+
+Live verification covered Docker Compose, PostgreSQL, Redis, FastAPI, ARQ, three independent healthy workers, Alembic migrations, queue delivery/consumption, durable frontier transitions, duplicate frontier protection, transient retry to attempt three, permanent failure persistence, parent finalization, PostgreSQL node/edge persistence, Prometheus metrics, and **11 containerized tests**. Live GitHub, Reddit, and Wikipedia crawling, frontend integration, cloud deployment, and large external workloads remain unverified.

@@ -1,113 +1,134 @@
 # Social Graph Crawler
 
-A FastAPI service that stores a small relationship graph in PostgreSQL. It can ingest public-source data from Reddit, GitHub, and Wikipedia, and includes a deterministic `fixture` source so the full local pipeline can be exercised without credentials or network access.
+A distributed crawling and data-ingestion portfolio project built with FastAPI, PostgreSQL, Redis, and ARQ. Crawl work is persisted in a PostgreSQL frontier, distributed to independently scalable workers, and exposed through a small API with retries, failure tracking, duplicate protection, and Prometheus metrics.
 
-## V2 architecture
+## Why this project exists
 
-```text
-                 FastAPI
-                    |
-              Redis / ARQ queue
-                    |
-       +------------+------------+
-       |            |            |
-    Worker 1     Worker 2     Worker 3
-       +------------+------------+
-                    |
-      PostgreSQL frontier -> nodes / edges
-                    |
-           Prometheus /metrics
+Crawling is more than making HTTP requests: work must survive process failures, avoid duplicate processing, retry only when useful, coordinate workers, and retain enough state to explain what happened. This project implements that smaller, demonstrable slice with deterministic fixtures rather than claiming web-scale crawling.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Client --> API[FastAPI API]
+    API --> Jobs[(PostgreSQL: jobs + frontier)]
+    API --> Queue[(Redis / ARQ)]
+    Queue --> W1[ARQ worker 1]
+    Queue --> W2[ARQ worker 2]
+    Queue --> W3[ARQ worker 3]
+    W1 --> Jobs
+    W2 --> Jobs
+    W3 --> Jobs
+    Jobs --> Graph[(PostgreSQL: nodes + edges)]
+    API --> Metrics[/Prometheus metrics/]
 ```
 
-FastAPI persists a job and deduplicated frontier items, then enqueues compact ARQ tasks. Workers claim PostgreSQL frontier rows with leases, process deterministic fixture cases, and persist idempotent graph records. Redis coordinates task delivery and source-level throttle spacing. This is at-least-once processing, not exactly-once delivery.
+## How a crawl works
 
-## Technologies
+1. FastAPI persists a crawl job and its frontier rows in PostgreSQL.
+2. PostgreSQL prevents duplicate targets within that job.
+3. After commit, the API enqueues each frontier item in Redis/ARQ.
+4. A worker claims its specific frontier item using a PostgreSQL lease.
+5. The worker throttles by source, processes the item, and persists its outcome.
+6. Transient errors are delayed and retried; permanent errors remain visible.
+7. Once no queued or processing frontier rows remain, PostgreSQL finalizes the parent job.
 
-Python 3.11+, FastAPI, SQLAlchemy async, Alembic, PostgreSQL, Redis, aiohttp, pytest; React and D3 are included as an unverified frontend.
+Delivery is **at least once**. Exactly-once is not claimed: a worker can fail after persistence but before acknowledgement. Database uniqueness constraints and idempotent node/edge persistence make repeated work safe.
 
-## Local setup
+## Reliability features
 
-1. Create a virtual environment and install dependencies:
+- Durable PostgreSQL frontier with statuses, attempts, leases, timestamps, and errors
+- Redis-backed ARQ workers; scale with `docker compose up --scale worker=3`
+- Exponential retry for retriable deterministic failures
+- PostgreSQL duplicate frontier constraint and idempotent graph persistence
+- Lease-based stale-work recovery through the resume API
+- Redis-coordinated per-source request spacing
+- Parent finalization based on persisted terminal frontier state
+- `/health`, `/ready`, and `/metrics/`
+- Persistent Docker volumes and a reproducible Codespaces verifier
 
-   ```powershell
-   python -m venv .venv
-   .\.venv\Scripts\python -m pip install -r backend\requirements.txt
-   ```
+## Verified failure scenarios
 
-2. Copy `.env.example` to `.env` and start PostgreSQL and Redis. The default local URLs are in that file.
-
-3. Apply migrations and start the API:
-
-   ```powershell
-   cd backend
-   ..\.venv\Scripts\alembic upgrade head
-   ..\.venv\Scripts\uvicorn app.main:app --host 127.0.0.1 --port 8000
-   ```
-
-`GET /health` reports process health. `GET /ready` returns 200 only when both PostgreSQL and Redis are reachable. Open `http://127.0.0.1:8000/docs` for the generated API documentation.
-
-## Docker
-
-With Docker Desktop installed:
-
-```bash
-docker compose up --build
-docker compose ps
-curl http://localhost:8000/ready
-```
-
-The backend container applies `alembic upgrade head` before starting Uvicorn. No Docker command was available in the audit environment, so this Compose path remains to be verified there.
+| Scenario | Verified result |
+|---|---|
+| Success | Completes on attempt 1 |
+| Transient failure | Fails twice, completes on attempt 3 |
+| Permanent failure | Persists as failed and appears in `/failures` |
+| Duplicate discovery | Duplicate frontier insertion is rejected per job |
+| Worker pool | Three independent ARQ worker containers consume work |
 
 ## Run in GitHub Codespaces
 
-1. On GitHub, choose **Code → Codespaces → Create codespace**.
-2. Wait for the development container to finish starting.
-3. Run one command from the repository root:
-
-   ```bash
-   ./scripts/verify_codespaces.sh
-   ```
-
-It builds and starts PostgreSQL, Redis, FastAPI, and three workers; runs migrations; executes a deterministic fixture crawl with retry/failure cases; checks PostgreSQL persistence and metrics; and runs backend tests. A successful run ends with `V2 VERIFY SUCCEEDED`.
-
-Codespaces forwards FastAPI on port 8000 (open the forwarded URL with `/docs` for Swagger). PostgreSQL (5432) and Redis (6379) are also forwarded for optional inspection. Stop the stack with:
+Create a Codespace from GitHub, wait for setup, then run:
 
 ```bash
+./scripts/verify_codespaces.sh
+```
+
+This is the complete verified path: it starts PostgreSQL, Redis, FastAPI, and three workers; migrates PostgreSQL; runs the deterministic V2 fixture; verifies retry, failure, deduplication, persistence, metrics, and containerized tests. A successful run ends with `V2 VERIFY SUCCEEDED`.
+
+FastAPI is forwarded on port 8000. Open its forwarded URL with `/docs` for Swagger or `/metrics/` for Prometheus output. Stop the stack with `docker compose down`.
+
+## Docker Compose
+
+```bash
+docker compose up --build --scale worker=3
 docker compose down
 ```
 
-The frontend is not included in Compose: it has not been built or verified and currently does not render persisted edges. The backend pipeline is the supported Codespaces verification path.
+The backend applies `alembic upgrade head` at startup. To apply it explicitly:
 
-## V2 crawl demo
+```bash
+docker compose exec backend alembic upgrade head
+```
 
-The fixture source is deterministic and requires no credentials:
+## API examples
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/crawl/start \
-  -H "Content-Type: application/json" \
-  -d '{"source":"fixture","start_entity":"v2-demo","depth":2,"max_entities":10}'
+  -H 'Content-Type: application/json' \
+  -d '{"source":"fixture","start_entity":"v2-demo-demo","depth":2,"max_entities":10}'
 ```
 
-Use the returned `id` with `GET /api/v1/crawl/jobs/{id}`, `/frontier`, and `/failures`. `v2-demo` has three completed items, one permanently failed item, a deduplicated discovery, and a transient item that succeeds on attempt three. `slow-demo` is suitable for the worker-restart demonstration below.
+Use the returned ID with:
 
-Scale workers with `docker compose up --scale worker=3`. To demonstrate lease recovery, start `slow-demo`, stop one worker with `docker compose stop worker`, wait longer than `FRONTIER_LEASE_SECONDS`, then restart it with `docker compose start worker` and call `POST /api/v1/crawl/jobs/{id}/resume`.
-
-GitHub, Reddit, and Wikipedia sources make real HTTP calls. GitHub/Reddit credentials are optional but may be needed for practical rate limits; their current upstream behavior has not been verified in this repository.
-
-## Testing
-
-```powershell
-$env:PYTHONPATH = 'backend'
-.\.venv\Scripts\python -m pytest backend\tests --no-cov
+```text
+GET /api/v1/crawl/jobs/{id}
+GET /api/v1/crawl/jobs/{id}/frontier
+GET /api/v1/crawl/jobs/{id}/failures
+GET /metrics/
 ```
 
-Tests cover API submission, frontier deduplication, retries, permanent failure recording, idempotent graph persistence, and engine configuration. See [the verification report](docs/VERIFICATION_REPORT.md) for commands actually executed.
+## Key design decisions
 
-## Limitations and next steps
+**PostgreSQL frontier, not Redis-only state.** Redis delivers tasks; PostgreSQL is the durable record of work, attempts, leases, and final state.
 
-- The frontend has not yet been integrated to render persisted edges.
-- External crawlers are not yet adapted to the durable frontier; V2 verification is fixture-only.
-- Lease recovery is at-least-once and requires the resume endpoint or a worker claim cycle; it is not automatic consensus.
-- There is no robots.txt policy, proxy support, Grafana, or frontend graph integration.
+**ARQ, not Celery.** ARQ is a smaller async-native fit for the existing FastAPI and aiohttp code. It provides Redis-backed task delivery without adding a second concurrency model.
 
-The proposed path from this trustworthy local baseline to a worker-based crawler platform is in [docs/V2_ARCHITECTURE_PLAN.md](docs/V2_ARCHITECTURE_PLAN.md).
+**Database constraints for deduplication.** The database is stronger than process-local sets when workers run concurrently or work is redelivered.
+
+**At-least-once processing.** This is the practical delivery model. Idempotent persistence is more credible than claiming exactly-once distributed execution.
+
+**Deterministic fixtures.** Success, retries, permanent failures, and duplicates are verified without credentials or unstable third-party APIs.
+
+## Verified environment
+
+### Verified
+
+GitHub Codespaces, Docker Compose, PostgreSQL, Redis, FastAPI, three ARQ workers, Alembic migrations, frontier persistence, ARQ delivery, retry behavior, duplicate protection, permanent failures, parent finalization, PostgreSQL persistence, Prometheus metrics, and 11 containerized backend tests.
+
+### Not yet verified
+
+Live GitHub, Reddit, and Wikipedia crawling; cloud deployment; large external workloads; multi-region operation; frontend build/integration; and web-scale performance.
+
+## Frontend status
+
+The React/D3 frontend remains in the repository but is not part of the supported V2 demo: it has not been verified against the frontier APIs and does not render persisted edges. V2 deliberately focuses on the backend ingestion system.
+
+## Further reading
+
+- [V2 implementation plan](docs/V2_IMPLEMENTATION_PLAN.md)
+- [Verification report](docs/VERIFICATION_REPORT.md)
+- [Demo script](docs/DEMO_SCRIPT.md)
+- [Interview notes](docs/INTERVIEW_NOTES.md)
+- [Portfolio copy](docs/PORTFOLIO_COPY.md)
