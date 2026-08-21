@@ -2,11 +2,24 @@
 
 A FastAPI service that stores a small relationship graph in PostgreSQL. It can ingest public-source data from Reddit, GitHub, and Wikipedia, and includes a deterministic `fixture` source so the full local pipeline can be exercised without credentials or network access.
 
-## Current architecture
+## V2 architecture
 
-`React UI -> FastAPI -> PostgreSQL` with Redis as a connectivity-checked cache client. Crawl work is currently executed by FastAPI `BackgroundTasks` in the same process: this is suitable only for local development and is explicitly not a durable distributed worker system.
+```text
+                 FastAPI
+                    |
+              Redis / ARQ queue
+                    |
+       +------------+------------+
+       |            |            |
+    Worker 1     Worker 2     Worker 3
+       +------------+------------+
+                    |
+      PostgreSQL frontier -> nodes / edges
+                    |
+           Prometheus /metrics
+```
 
-The verified pipeline is: `POST job -> fixture fetch/parse -> normalization -> PostgreSQL nodes and edges -> completed/failed job retrieval`.
+FastAPI persists a job and deduplicated frontier items, then enqueues compact ARQ tasks. Workers claim PostgreSQL frontier rows with leases, process deterministic fixture cases, and persist idempotent graph records. Redis coordinates task delivery and source-level throttle spacing. This is at-least-once processing, not exactly-once delivery.
 
 ## Technologies
 
@@ -55,7 +68,7 @@ The backend container applies `alembic upgrade head` before starting Uvicorn. No
    ./scripts/verify_codespaces.sh
    ```
 
-It builds and starts PostgreSQL, Redis, and FastAPI; runs migrations; executes a deterministic fixture crawl; checks PostgreSQL persistence; and runs the backend tests. A successful run ends with `VERIFY SUCCEEDED`.
+It builds and starts PostgreSQL, Redis, FastAPI, and three workers; runs migrations; executes a deterministic fixture crawl with retry/failure cases; checks PostgreSQL persistence and metrics; and runs backend tests. A successful run ends with `V2 VERIFY SUCCEEDED`.
 
 Codespaces forwards FastAPI on port 8000 (open the forwarded URL with `/docs` for Swagger). PostgreSQL (5432) and Redis (6379) are also forwarded for optional inspection. Stop the stack with:
 
@@ -65,17 +78,19 @@ docker compose down
 
 The frontend is not included in Compose: it has not been built or verified and currently does not render persisted edges. The backend pipeline is the supported Codespaces verification path.
 
-## Start a local crawl
+## V2 crawl demo
 
 The fixture source is deterministic and requires no credentials:
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/crawl/start \
   -H "Content-Type: application/json" \
-  -d '{"source":"fixture","start_entity":"Python","depth":2,"max_entities":10}'
+  -d '{"source":"fixture","start_entity":"v2-demo","depth":2,"max_entities":10}'
 ```
 
-Use the returned `id` with `GET /api/v1/crawl/jobs/{id}`. `start_entity: "fail"` is a deterministic error path that records a failed job. Use `GET /api/v1/nodes/` and `GET /api/v1/edges/` to inspect persisted graph data.
+Use the returned `id` with `GET /api/v1/crawl/jobs/{id}`, `/frontier`, and `/failures`. `v2-demo` has three completed items, one permanently failed item, a deduplicated discovery, and a transient item that succeeds on attempt three. `slow-demo` is suitable for the worker-restart demonstration below.
+
+Scale workers with `docker compose up --scale worker=3`. To demonstrate lease recovery, start `slow-demo`, stop one worker with `docker compose stop worker`, wait longer than `FRONTIER_LEASE_SECONDS`, then restart it with `docker compose start worker` and call `POST /api/v1/crawl/jobs/{id}/resume`.
 
 GitHub, Reddit, and Wikipedia sources make real HTTP calls. GitHub/Reddit credentials are optional but may be needed for practical rate limits; their current upstream behavior has not been verified in this repository.
 
@@ -86,13 +101,13 @@ $env:PYTHONPATH = 'backend'
 .\.venv\Scripts\python -m pytest backend\tests --no-cov
 ```
 
-Tests cover health, node duplicate rejection, deterministic crawl persistence, duplicate graph records, job status, and recorded failure. See [the verification report](docs/VERIFICATION_REPORT.md) for commands actually executed.
+Tests cover API submission, frontier deduplication, retries, permanent failure recording, idempotent graph persistence, and engine configuration. See [the verification report](docs/VERIFICATION_REPORT.md) for commands actually executed.
 
 ## Limitations and next steps
 
 - The frontend has not yet been integrated to render persisted edges.
-- The local background runner loses in-flight work if the API process stops.
-- There is no robots.txt policy, crawl frontier, checkpointing, worker heartbeat, or proxy support.
-- Redis is connected and used by the readiness check, but caching and API throttling are not yet product features.
+- External crawlers are not yet adapted to the durable frontier; V2 verification is fixture-only.
+- Lease recovery is at-least-once and requires the resume endpoint or a worker claim cycle; it is not automatic consensus.
+- There is no robots.txt policy, proxy support, Grafana, or frontend graph integration.
 
 The proposed path from this trustworthy local baseline to a worker-based crawler platform is in [docs/V2_ARCHITECTURE_PLAN.md](docs/V2_ARCHITECTURE_PLAN.md).

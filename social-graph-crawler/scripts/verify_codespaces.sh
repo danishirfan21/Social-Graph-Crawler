@@ -20,8 +20,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "Starting PostgreSQL, Redis, and FastAPI..."
-compose up --build --detach --wait
+echo "Starting PostgreSQL, Redis, FastAPI, and three workers..."
+compose up --build --detach --wait --scale worker=3
 
 echo "Applying Alembic migrations..."
 compose exec -T backend alembic upgrade head
@@ -29,12 +29,13 @@ compose exec -T backend alembic upgrade head
 echo "Checking API health and readiness..."
 curl --fail --silent --show-error http://localhost:8000/health >/dev/null
 curl --fail --silent --show-error http://localhost:8000/ready >/dev/null
+curl --fail --silent --show-error http://localhost:8000/metrics >/dev/null
 
-echo "Starting deterministic fixture crawl..."
+echo "Starting deterministic V2 fixture crawl..."
 job_json=$(curl --fail --silent --show-error \
   -X POST http://localhost:8000/api/v1/crawl/start \
   -H 'Content-Type: application/json' \
-  --data '{"source":"fixture","start_entity":"Codespaces Demo","depth":2,"max_entities":10}')
+  --data '{"source":"fixture","start_entity":"v2-demo","depth":2,"max_entities":10}')
 job_id=$(python3 -c 'import json, sys; print(json.load(sys.stdin)["id"])' <<<"$job_json")
 
 for _ in $(seq 1 30); do
@@ -47,6 +48,9 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 [[ "$job_status" == "completed" ]] || fail "Fixture crawl did not finish within 30 seconds."
+
+frontier_json=$(curl --fail --silent --show-error "http://localhost:8000/api/v1/crawl/jobs/${job_id}/frontier")
+python3 -c 'import json,sys; x=json.load(sys.stdin); assert len(x)==4; assert sum(i["status"]=="completed" for i in x)==3; assert sum(i["status"]=="failed" for i in x)==1; assert next(i for i in x if i["target"]=="transient")["attempt_count"]==3' <<<"$frontier_json" || fail "Frontier, duplicate protection, retry, or permanent failure verification failed."
 
 echo "Verifying PostgreSQL persistence..."
 node_count=$(compose exec -T postgres psql -U postgres -d social_graph -tAc "SELECT count(*) FROM nodes WHERE source = 'fixture';")
@@ -61,5 +65,6 @@ fi
 echo "Running backend test suite in the backend container..."
 compose exec -T backend pytest
 
-echo "VERIFY SUCCEEDED: API, PostgreSQL, Redis, migrations, fixture crawl, persistence, and tests passed."
+echo "V2 VERIFY SUCCEEDED:"
+echo "API PostgreSQL Redis workers migrations crawl-frontier fixture-retry duplicate-protection persistence metrics tests"
 echo "Stop the stack with: docker compose down"

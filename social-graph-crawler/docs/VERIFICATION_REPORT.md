@@ -55,3 +55,11 @@ Actual post-fix checks run on this host:
 | `alembic upgrade head --sql` using PostgreSQL URL | Generated PostgreSQL migration SQL successfully; this is offline SQL generation, not a live migration. |
 
 Docker remains unavailable in this workspace, so the repaired `./scripts/verify_codespaces.sh` has **not** been re-run here. The earlier Codespaces evidence confirms that PostgreSQL and Redis containers became healthy before the backend failure, but this report does not claim a full successful container verification. The Redis `vm.overcommit_memory` warning is a host-kernel recommendation; it is non-blocking for this small deterministic demo when Redis is healthy. It should not be changed from inside the Codespace.
+
+## V2 implementation status — 2026-08-21
+
+Implemented ARQ workers, PostgreSQL frontier rows with a lease/attempt/error record, fixture retry/permanent-failure/duplicate cases, source-level Redis throttle spacing, `/metrics`, and V2 job frontier/failure/resume APIs. `scripts/verify_codespaces.sh` now starts three workers and validates the V2 demo behavior.
+
+Actual V2 checks run in this workspace: `pytest backend/tests --no-cov` (**10 passed**), `alembic upgrade head` against a clean SQLite file (including `0002_crawl_frontier`), and `bash -n scripts/verify_codespaces.sh`.
+
+The V2 Compose workflow was not run in this Windows workspace because Docker remains unavailable. The existing Codespaces verification was for the pre-V2 baseline; this report does not claim that workers, live PostgreSQL frontier claims, Redis ARQ delivery, metrics, or V2 recovery have been container-verified yet.

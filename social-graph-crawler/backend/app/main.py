@@ -10,6 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import init_db, close_db
 from app.services.cache_service import cache
+from app.services.metrics import metrics_app
+from app.services.queue import task_queue
 from app.api import nodes, edges, graph, crawl
 
 
@@ -30,6 +32,7 @@ async def lifespan(app: FastAPI):
     logger.info("Starting up Social Graph Crawler API...")
     await init_db()
     await cache.connect()
+    await task_queue.connect()
     logger.info("Database initialized")
     
     yield
@@ -38,6 +41,7 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down...")
     await close_db()
     await cache.disconnect()
+    await task_queue.disconnect()
     logger.info("Database connections closed")
 
 
@@ -50,6 +54,7 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan
 )
+app.mount("/metrics", metrics_app)
 
 # Configure CORS
 app.add_middleware(
