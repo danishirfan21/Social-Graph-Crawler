@@ -63,3 +63,9 @@ Implemented ARQ workers, PostgreSQL frontier rows with a lease/attempt/error rec
 Actual V2 checks run in this workspace: `pytest backend/tests --no-cov` (**10 passed**), `alembic upgrade head` against a clean SQLite file (including `0002_crawl_frontier`), and `bash -n scripts/verify_codespaces.sh`.
 
 The V2 Compose workflow was not run in this Windows workspace because Docker remains unavailable. The existing Codespaces verification was for the pre-V2 baseline; this report does not claim that workers, live PostgreSQL frontier claims, Redis ARQ delivery, metrics, or V2 recovery have been container-verified yet.
+
+## V2 worker-health repair — 2026-08-21
+
+The first V2 Codespaces run started all three ARQ workers and connected them to Redis, while PostgreSQL, Redis, backend readiness, and Alembic `0002_crawl_frontier` also succeeded. Compose still reported workers unhealthy because they inherited the image's FastAPI HTTP healthcheck and ARQ workers do not listen on port 8000.
+
+The worker service now overrides that inherited check. It confirms PID 1 (the ARQ process) is alive and performs a Redis `PING` using the configured broker URL. It checks every five seconds after a ten-second start period and fails after six unsuccessful checks (about 40 seconds), rather than masking a crash-loop with a long timeout. This repair has not been re-run in Codespaces from this workspace; no claim is made yet that live ARQ consumption, frontier transitions, retry, persistence, metrics, or containerized tests passed after it.

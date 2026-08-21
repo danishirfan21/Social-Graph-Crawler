@@ -74,6 +74,14 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      # The ARQ process is PID 1; unlike the API, it has no HTTP endpoint.
+      # Verify that process is alive and that its broker is reachable.
+      test: ["CMD-SHELL", "kill -0 1 && python -c \"import os, redis; redis.Redis.from_url(os.environ['REDIS_URL']).ping()\""]
+      interval: 5s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
 
   # pgAdmin (optional - for database management)
   pgadmin:
