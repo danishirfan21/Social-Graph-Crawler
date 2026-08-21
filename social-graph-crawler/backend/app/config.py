@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     CRAWLER_RATE_LIMIT: float = 5.0
     CRAWLER_CONCURRENCY: int = 5
     ENABLE_FIXTURE_CRAWLER: bool = True
+    FRONTIER_LEASE_SECONDS: int = 30
+    FRONTIER_MAX_ATTEMPTS: int = 3
+    FIXTURE_REQUESTS_PER_SECOND: float = 20.0
     
     # Graph Settings
     DEFAULT_GRAPH_DEPTH: int = 2

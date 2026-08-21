@@ -1,0 +1,76 @@
+"""PostgreSQL-backed frontier claiming and terminal job state calculation."""
+from datetime import datetime, timedelta, timezone
+from uuid import UUID
+
+from sqlalchemy import func, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.config import settings
+from app.models import CrawlFrontierItem, CrawlJob, CrawlStatus, FrontierStatus
+
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+async def add_frontier_item(db: AsyncSession, job_id: UUID, source: str, target: str, depth: int = 1) -> bool:
+    try:
+        async with db.begin_nested():
+            db.add(CrawlFrontierItem(crawl_job_id=job_id, source=source, target=target, depth=depth))
+            await db.flush()
+        return True
+    except Exception:
+        return False
+
+
+async def recover_stale_items(db: AsyncSession, job_id: UUID | None = None) -> int:
+    statement = update(CrawlFrontierItem).where(
+        CrawlFrontierItem.status == FrontierStatus.PROCESSING.value,
+        CrawlFrontierItem.lease_expires_at < utcnow(),
+    ).values(status=FrontierStatus.QUEUED.value, worker_id=None, lease_expires_at=None)
+    if job_id:
+        statement = statement.where(CrawlFrontierItem.crawl_job_id == job_id)
+    result = await db.execute(statement)
+    return result.rowcount or 0
+
+
+async def claim_item(db: AsyncSession, job_id: UUID, worker_id: str) -> CrawlFrontierItem | None:
+    await recover_stale_items(db, job_id)
+    result = await db.execute(
+        select(CrawlFrontierItem)
+        .where(CrawlFrontierItem.crawl_job_id == job_id, CrawlFrontierItem.status == FrontierStatus.QUEUED.value)
+        .order_by(CrawlFrontierItem.discovered_at)
+        .with_for_update(skip_locked=True)
+        .limit(1)
+    )
+    item = result.scalar_one_or_none()
+    if item is None:
+        return None
+    now = utcnow()
+    item.status = FrontierStatus.PROCESSING.value
+    item.worker_id = worker_id
+    item.processing_at = now
+    item.lease_expires_at = now + timedelta(seconds=settings.FRONTIER_LEASE_SECONDS)
+    item.attempt_count += 1
+    await db.flush()
+    return item
+
+
+async def refresh_job_status(db: AsyncSession, job_id: UUID) -> None:
+    job = await db.get(CrawlJob, job_id)
+    if job is None:
+        return
+    counts = dict((await db.execute(select(CrawlFrontierItem.status, func.count()).where(CrawlFrontierItem.crawl_job_id == job_id).group_by(CrawlFrontierItem.status))).all())
+    terminal = counts.get(FrontierStatus.COMPLETED.value, 0) + counts.get(FrontierStatus.FAILED.value, 0)
+    total = sum(counts.values())
+    job.entity_count = counts.get(FrontierStatus.COMPLETED.value, 0)
+    if total and terminal == total:
+        job.status = CrawlStatus.COMPLETED.value
+        job.completed_at = utcnow()
+        if counts.get(FrontierStatus.FAILED.value):
+            job.error_message = f"{counts[FrontierStatus.FAILED.value]} frontier item(s) failed"
+
+
+async def frontier_counts(db: AsyncSession, job_id: UUID) -> dict[str, int]:
+    rows = (await db.execute(select(CrawlFrontierItem.status, func.count()).where(CrawlFrontierItem.crawl_job_id == job_id).group_by(CrawlFrontierItem.status))).all()
+    return {status: count for status, count in rows}
