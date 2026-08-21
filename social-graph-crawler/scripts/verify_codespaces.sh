@@ -5,6 +5,15 @@ set -euo pipefail
 compose() { docker compose "$@"; }
 fail() { echo "VERIFY FAILED: $*" >&2; exit 1; }
 
+diagnose_job() {
+  [[ -n "${job_id:-}" ]] || return 0
+  echo "V2 diagnostic: job ${job_id}" >&2
+  curl --silent "http://localhost:8000/api/v1/crawl/jobs/${job_id}" >&2 || true
+  curl --silent "http://localhost:8000/api/v1/crawl/jobs/${job_id}/frontier" >&2 || true
+  compose exec -T redis redis-cli --scan --pattern 'arq:*' >&2 || true
+  compose logs --no-color backend worker >&2 || true
+}
+
 command -v docker >/dev/null || fail "Docker is not installed or not on PATH."
 docker compose version >/dev/null || fail "Docker Compose v2 is unavailable."
 command -v curl >/dev/null || fail "curl is required."
@@ -47,7 +56,10 @@ for _ in $(seq 1 30); do
   [[ "$job_status" == "failed" ]] && fail "Fixture crawl failed: $job_json"
   sleep 1
 done
-[[ "$job_status" == "completed" ]] || fail "Fixture crawl did not finish within 30 seconds."
+if [[ "$job_status" != "completed" ]]; then
+  diagnose_job
+  fail "Fixture crawl did not finish within 30 seconds."
+fi
 
 frontier_json=$(curl --fail --silent --show-error "http://localhost:8000/api/v1/crawl/jobs/${job_id}/frontier")
 python3 -c 'import json,sys; x=json.load(sys.stdin); assert len(x)==4; assert sum(i["status"]=="completed" for i in x)==3; assert sum(i["status"]=="failed" for i in x)==1; assert next(i for i in x if i["target"]=="transient")["attempt_count"]==3' <<<"$frontier_json" || fail "Frontier, duplicate protection, retry, or permanent failure verification failed."

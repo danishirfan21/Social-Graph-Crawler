@@ -69,3 +69,9 @@ The V2 Compose workflow was not run in this Windows workspace because Docker rem
 The first V2 Codespaces run started all three ARQ workers and connected them to Redis, while PostgreSQL, Redis, backend readiness, and Alembic `0002_crawl_frontier` also succeeded. Compose still reported workers unhealthy because they inherited the image's FastAPI HTTP healthcheck and ARQ workers do not listen on port 8000.
 
 The worker service now overrides that inherited check. It confirms PID 1 (the ARQ process) is alive and performs a Redis `PING` using the configured broker URL. It checks every five seconds after a ten-second start period and fails after six unsuccessful checks (about 40 seconds), rather than masking a crash-loop with a long timeout. This repair has not been re-run in Codespaces from this workspace; no claim is made yet that live ARQ consumption, frontier transitions, retry, persistence, metrics, or containerized tests passed after it.
+
+## V2 queue diagnostics repair — 2026-08-21
+
+The next Codespaces run created the expected deduplicated frontier rows and accepted the V2 job, but the job did not reach a terminal state. The supplied evidence did not include worker task exceptions, Redis queue contents, or frontier transition rows, so no root cause is claimed from startup logs alone.
+
+Queue tasks now carry both the committed crawl-job ID and a specific committed frontier-item ID. The API logs each ARQ task ID after commit; workers log claim, retry, completion, failure, and no-claim transitions. The verifier now dumps the job JSON, frontier rows, ARQ Redis keys, backend logs, and worker logs before failing a polling timeout. Normal Compose mode disables SQLAlchemy echo noise while retaining focused application logs. Local tests passed (**10 passed**) and the verifier shell syntax passed. This repair still requires a Codespaces rerun for live queue-to-worker verification.

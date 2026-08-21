@@ -13,12 +13,13 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
-async def add_frontier_item(db: AsyncSession, job_id: UUID, source: str, target: str, depth: int = 1) -> bool:
+async def add_frontier_item(db: AsyncSession, job_id: UUID, source: str, target: str, depth: int = 1) -> UUID | None:
     try:
         async with db.begin_nested():
-            db.add(CrawlFrontierItem(crawl_job_id=job_id, source=source, target=target, depth=depth))
+            item = CrawlFrontierItem(crawl_job_id=job_id, source=source, target=target, depth=depth)
+            db.add(item)
             await db.flush()
-        return True
+        return item.id
     except Exception:
         return False
 
@@ -34,11 +35,13 @@ async def recover_stale_items(db: AsyncSession, job_id: UUID | None = None) -> i
     return result.rowcount or 0
 
 
-async def claim_item(db: AsyncSession, job_id: UUID, worker_id: str) -> CrawlFrontierItem | None:
+async def claim_item(db: AsyncSession, job_id: UUID, worker_id: str, frontier_id: UUID | None = None) -> CrawlFrontierItem | None:
     await recover_stale_items(db, job_id)
+    statement = select(CrawlFrontierItem).where(CrawlFrontierItem.crawl_job_id == job_id, CrawlFrontierItem.status == FrontierStatus.QUEUED.value)
+    if frontier_id:
+        statement = statement.where(CrawlFrontierItem.id == frontier_id)
     result = await db.execute(
-        select(CrawlFrontierItem)
-        .where(CrawlFrontierItem.crawl_job_id == job_id, CrawlFrontierItem.status == FrontierStatus.QUEUED.value)
+        statement
         .order_by(CrawlFrontierItem.discovered_at)
         .with_for_update(skip_locked=True)
         .limit(1)

@@ -1,7 +1,11 @@
 from arq import create_pool
+import logging
+
 from arq.connections import RedisSettings
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class TaskQueue:
@@ -16,11 +20,12 @@ class TaskQueue:
             await self.redis.aclose()
             self.redis = None
 
-    async def enqueue_frontier(self, job_id: str, count: int) -> None:
+    async def enqueue_frontier(self, job_id: str, frontier_ids: list[str]) -> None:
         if self.redis is None:
             raise RuntimeError("task queue is unavailable")
-        for _ in range(count):
-            await self.redis.enqueue_job("process_frontier_item", job_id)
+        for frontier_id in frontier_ids:
+            task = await self.redis.enqueue_job("process_frontier_item", job_id, frontier_id)
+            logger.info("frontier.enqueued crawl_job_id=%s frontier_item_id=%s arq_job_id=%s", job_id, frontier_id, task.job_id)
 
 
 task_queue = TaskQueue()

@@ -53,13 +53,13 @@ async def start_crawl(request: CrawlRequest, db: AsyncSession = Depends(get_db))
     try:
         await db.flush()
         targets = fixture_targets(request.start_entity) if request.source == "fixture" else [request.start_entity]
-        inserted = sum([await add_frontier_item(db, job.id, request.source, target) for target in targets])
+        frontier_ids = [item_id for target in targets if (item_id := await add_frontier_item(db, job.id, request.source, target))]
         await db.commit()
     except IntegrityError:
         await db.rollback()
         raise HTTPException(409, "An identical crawl is already active")
     try:
-        await task_queue.enqueue_frontier(str(job.id), inserted)
+        await task_queue.enqueue_frontier(str(job.id), [str(item_id) for item_id in frontier_ids])
     except Exception as exc:
         job.status, job.error_message = CrawlStatus.FAILED.value, f"Queue enqueue failed: {exc}"
         job.completed_at = datetime.now(timezone.utc)
@@ -88,7 +88,8 @@ async def resume_crawl(job_id: UUID, db: AsyncSession = Depends(get_db)):
     if not job: raise HTTPException(404, "Crawl job not found")
     recovered = await recover_stale_items(db, job_id)
     await db.commit()
-    await task_queue.enqueue_frontier(str(job_id), max(recovered, 1))
+    queued_ids = (await db.execute(select(CrawlFrontierItem.id).where(CrawlFrontierItem.crawl_job_id == job_id, CrawlFrontierItem.status == FrontierStatus.QUEUED.value))).scalars().all()
+    await task_queue.enqueue_frontier(str(job_id), [str(item_id) for item_id in queued_ids])
     return job
 
 @router.get("/jobs", response_model=list[CrawlJobResponse])

@@ -21,8 +21,11 @@ async def test_v2_job_creates_deduplicated_frontier_and_records_failures(client,
     frontier = await client.get(f"/api/v1/crawl/jobs/{job_id}/frontier")
     assert len(frontier.json()) == 4  # duplicate fixture target is constrained per job
     redis = FakeRedis()
-    for _ in range(8):
-        await worker.process_frontier_item({"redis": redis}, job_id)
+    for item in frontier.json():
+        await worker.process_frontier_item({"redis": redis}, job_id, item["id"])
+    transient_id = next(item["id"] for item in frontier.json() if item["target"] == "transient")
+    await worker.process_frontier_item({"redis": redis}, job_id, transient_id)
+    await worker.process_frontier_item({"redis": redis}, job_id, transient_id)
     job = (await client.get(f"/api/v1/crawl/jobs/{job_id}")).json()
     assert job["status"] == "completed"
     failures = (await client.get(f"/api/v1/crawl/jobs/{job_id}/failures")).json()
