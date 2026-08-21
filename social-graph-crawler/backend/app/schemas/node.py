@@ -36,9 +36,7 @@ class NodeResponse(NodeBase):
     created_at: datetime
     updated_at: datetime
     
-    # Computed fields
-    in_degree: Optional[int] = Field(default=0, description="Number of incoming edges")
-    out_degree: Optional[int] = Field(default=0, description="Number of outgoing edges")
+    metadata: Optional[Dict] = Field(default_factory=dict, validation_alias="data")
     
     model_config = ConfigDict(from_attributes=True)
 

@@ -43,6 +43,7 @@ class EdgeResponse(EdgeBase):
     """Schema for edge response from API."""
     id: UUID
     created_at: datetime
+    metadata: Optional[Dict] = Field(default_factory=dict, validation_alias="data")
     
     model_config = ConfigDict(from_attributes=True)
 

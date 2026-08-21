@@ -120,21 +120,22 @@ class BaseCrawler(ABC):
         Raises:
             aiohttp.ClientError: On HTTP errors
         """
-        await self.rate_limiter.acquire()
-        
-        try:
-            async with self.session.get(url, headers=headers, params=params) as response:
-                response.raise_for_status()
-                return await response.json()
-        except aiohttp.ClientResponseError as e:
-            if e.status == 429:  # Too Many Requests
-                logger.warning(f"Rate limit hit for {url}, backing off...")
-                await asyncio.sleep(60)  # Wait 1 minute
-                return await self.fetch_with_rate_limit(url, headers, params)
-            raise
-        except Exception as e:
-            logger.error(f"Error fetching {url}: {e}")
-            raise
+        if self.session is None:
+            raise RuntimeError("Crawler session has not been opened")
+        for attempt in range(settings.CRAWLER_MAX_RETRIES):
+            await self.rate_limiter.acquire()
+            try:
+                async with self.session.get(url, headers=headers, params=params) as response:
+                    response.raise_for_status()
+                    return await response.json()
+            except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+                if attempt == settings.CRAWLER_MAX_RETRIES - 1:
+                    logger.exception("crawl request failed", extra={"url": url})
+                    raise
+                delay = settings.CRAWLER_BACKOFF_SECONDS * (2**attempt)
+                logger.warning("retrying crawl request", extra={"url": url, "attempt": attempt + 1})
+                await asyncio.sleep(delay)
+        raise RuntimeError("unreachable")
     
     async def create_or_update_node(
         self,
@@ -183,7 +184,7 @@ class BaseCrawler(ABC):
             # Update existing node
             node.display_name = display_name
             if metadata:
-                node.metadata = {**node.metadata, **metadata}
+                node.data = {**node.data, **metadata}
         else:
             # Create new node
             node = Node(
@@ -191,7 +192,7 @@ class BaseCrawler(ABC):
                 entity_id=entity_id,
                 source=source,
                 display_name=display_name,
-                metadata=metadata or {}
+                data=metadata or {}
             )
             self.db.add(node)
         
@@ -239,14 +240,14 @@ class BaseCrawler(ABC):
             # Update weight (average with existing)
             edge.weight = (edge.weight + weight) / 2
             if metadata:
-                edge.metadata = {**edge.metadata, **metadata}
+                edge.data = {**edge.data, **metadata}
         else:
             edge = Edge(
                 source_node_id=source_node.id,
                 target_node_id=target_node.id,
                 relationship_type=relationship_type,
                 weight=weight,
-                metadata=metadata or {}
+                data=metadata or {}
             )
             self.db.add(edge)
         
@@ -254,10 +255,12 @@ class BaseCrawler(ABC):
         self.discovered_edges.add(edge_key)
         return edge
     
-    async def create_crawl_job(self) -> CrawlJob:
+    async def create_crawl_job(self, start_entity: str = "direct", request_key: str = "direct") -> CrawlJob:
         """Create a new crawl job record."""
         job = CrawlJob(
             source=self.get_source_name(),
+            start_entity=start_entity,
+            request_key=request_key,
             status=CrawlStatus.PENDING.value
         )
         self.db.add(job)
@@ -285,11 +288,11 @@ class BaseCrawler(ABC):
             job.error_message = error_message
         
         if status == CrawlStatus.RUNNING and not job.started_at:
-            from datetime import datetime
-            job.started_at = datetime.utcnow()
+            from datetime import datetime, timezone
+            job.started_at = datetime.now(timezone.utc)
         
         if status in {CrawlStatus.COMPLETED, CrawlStatus.FAILED}:
-            from datetime import datetime
-            job.completed_at = datetime.utcnow()
+            from datetime import datetime, timezone
+            job.completed_at = datetime.now(timezone.utc)
         
         await self.db.flush()

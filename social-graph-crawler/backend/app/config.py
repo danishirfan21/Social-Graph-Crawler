@@ -4,7 +4,7 @@ Loads configuration from environment variables with validation.
 """
 
 from functools import lru_cache
-from typing import List
+from typing import List, Literal
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -47,6 +47,11 @@ class Settings(BaseSettings):
     MAX_NODES_PER_JOB: int = 1000
     CRAWLER_CONCURRENCY: int = 10
     REQUEST_TIMEOUT: int = 30
+    CRAWLER_MAX_RETRIES: int = 3
+    CRAWLER_BACKOFF_SECONDS: float = 0.25
+    CRAWLER_RATE_LIMIT: float = 5.0
+    CRAWLER_CONCURRENCY: int = 5
+    ENABLE_FIXTURE_CRAWLER: bool = True
     
     # Graph Settings
     DEFAULT_GRAPH_DEPTH: int = 2

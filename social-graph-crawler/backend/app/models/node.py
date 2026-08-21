@@ -4,9 +4,8 @@ Node model representing entities in the social graph.
 
 from datetime import datetime
 from typing import List
-from uuid import uuid4
-from sqlalchemy import String, DateTime, Index, JSON, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
+from uuid import UUID, uuid4
+from sqlalchemy import String, DateTime, Index, JSON, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -32,7 +31,7 @@ class Node(Base):
     
     # Primary Key
     id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         primary_key=True,
         default=uuid4,
         index=True
@@ -67,7 +66,8 @@ class Node(Base):
     )
     
     # Flexible metadata storage
-    metadata: Mapped[dict] = mapped_column(
+    data: Mapped[dict] = mapped_column(
+        "metadata",
         JSON,
         nullable=True,
         default=dict,

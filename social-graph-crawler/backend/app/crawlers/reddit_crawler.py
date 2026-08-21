@@ -40,7 +40,8 @@ class RedditCrawler(BaseCrawler):
         self,
         start_entity: str,
         depth: int = 2,
-        max_entities: int = 100
+        max_entities: int = 100,
+        job: CrawlJob | None = None,
     ) -> CrawlJob:
         """
         Crawl Reddit starting from a subreddit.
@@ -53,7 +54,7 @@ class RedditCrawler(BaseCrawler):
         Returns:
             CrawlJob with statistics
         """
-        job = await self.create_crawl_job()
+        job = job or await self.create_crawl_job(start_entity, f"direct:{start_entity}")
         
         try:
             await self.update_crawl_job(job, CrawlStatus.RUNNING)

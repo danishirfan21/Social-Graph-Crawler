@@ -54,7 +54,7 @@ async def create_node(
         )
     
     # Create new node
-    node = Node(**node_data.model_dump())
+    node = Node(**node_data.model_dump(exclude={"metadata"}), data=node_data.metadata or {})
     db.add(node)
     await db.commit()
     await db.refresh(node)
@@ -181,7 +181,7 @@ async def update_node(
         node.display_name = update_data["display_name"]
     
     if "metadata" in update_data:
-        node.metadata = {**node.metadata, **update_data["metadata"]}
+        node.data = {**node.data, **update_data["metadata"]}
     
     await db.commit()
     await db.refresh(node)

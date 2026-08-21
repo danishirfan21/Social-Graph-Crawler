@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import init_db, close_db
+from app.services.cache_service import cache
 from app.api import nodes, edges, graph, crawl
 
 
@@ -28,6 +29,7 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting up Social Graph Crawler API...")
     await init_db()
+    await cache.connect()
     logger.info("Database initialized")
     
     yield
@@ -35,6 +37,7 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("Shutting down...")
     await close_db()
+    await cache.disconnect()
     logger.info("Database connections closed")
 
 
@@ -67,6 +70,28 @@ async def health_check():
         "version": settings.APP_VERSION,
         "app": settings.APP_NAME
     }
+
+
+@app.get("/ready", tags=["Health"])
+async def readiness_check():
+    """Report dependencies required to accept crawl jobs."""
+    from sqlalchemy import text
+    from app.database import engine
+    database_ok = redis_ok = False
+    try:
+        async with engine.connect() as connection:
+            await connection.execute(text("SELECT 1"))
+        database_ok = True
+    except Exception:
+        logger.exception("readiness database check failed")
+    try:
+        redis_ok = bool(cache.redis and await cache.redis.ping())
+    except Exception:
+        logger.exception("readiness Redis check failed")
+    if not (database_ok and redis_ok):
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=503, content={"status": "not_ready", "database": database_ok, "redis": redis_ok})
+    return {"status": "ready", "database": True, "redis": True}
 
 
 # Include routers

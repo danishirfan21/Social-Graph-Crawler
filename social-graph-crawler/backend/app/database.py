@@ -64,8 +64,9 @@ async def init_db() -> None:
     Initialize database tables.
     Should be called on application startup.
     """
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Schema changes are owned by Alembic. Startup only verifies connectivity.
+    async with engine.connect() as conn:
+        await conn.execute(__import__("sqlalchemy").text("SELECT 1"))
 
 
 async def close_db() -> None:

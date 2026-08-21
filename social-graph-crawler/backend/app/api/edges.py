@@ -77,7 +77,7 @@ async def create_edge(
         )
     
     # Create edge
-    edge = Edge(**edge_data.model_dump())
+    edge = Edge(**edge_data.model_dump(exclude={"metadata"}), data=edge_data.metadata or {})
     db.add(edge)
     await db.commit()
     await db.refresh(edge)
@@ -182,7 +182,7 @@ async def update_edge(
     
     for field, value in update_data.items():
         if field == "metadata" and value:
-            edge.metadata = {**edge.metadata, **value}
+            edge.data = {**edge.data, **value}
         else:
             setattr(edge, field, value)
     

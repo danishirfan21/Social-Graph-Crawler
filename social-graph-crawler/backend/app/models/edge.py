@@ -3,9 +3,8 @@ Edge model representing relationships between nodes.
 """
 
 from datetime import datetime
-from uuid import uuid4
-from sqlalchemy import String, DateTime, Float, ForeignKey, Index, JSON, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
+from uuid import UUID, uuid4
+from sqlalchemy import String, DateTime, Float, ForeignKey, Index, JSON, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -30,7 +29,7 @@ class Edge(Base):
     
     # Primary Key
     id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         primary_key=True,
         default=uuid4,
         index=True
@@ -38,7 +37,7 @@ class Edge(Base):
     
     # Foreign Keys
     source_node_id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         ForeignKey("nodes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -46,7 +45,7 @@ class Edge(Base):
     )
     
     target_node_id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         ForeignKey("nodes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -69,7 +68,8 @@ class Edge(Base):
     )
     
     # Flexible metadata storage
-    metadata: Mapped[dict] = mapped_column(
+    data: Mapped[dict] = mapped_column(
+        "metadata",
         JSON,
         nullable=True,
         default=dict,

@@ -4,9 +4,8 @@ CrawlJob model for tracking crawler execution and status.
 
 from datetime import datetime
 from enum import Enum
-from uuid import uuid4
-from sqlalchemy import String, DateTime, Integer, Text
-from sqlalchemy.dialects.postgresql import UUID
+from uuid import UUID, uuid4
+from sqlalchemy import String, DateTime, Integer, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -42,7 +41,7 @@ class CrawlJob(Base):
     
     # Primary Key
     id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         primary_key=True,
         default=uuid4,
         index=True
@@ -55,6 +54,8 @@ class CrawlJob(Base):
         index=True,
         comment="Source: reddit, github, wikipedia"
     )
+    start_entity: Mapped[str] = mapped_column(String(255), nullable=False)
+    request_key: Mapped[str] = mapped_column(String(64), nullable=False)
     
     status: Mapped[str] = mapped_column(
         String(20),
@@ -106,6 +107,7 @@ class CrawlJob(Base):
     )
     
     __table_args__ = (
+        UniqueConstraint("request_key", name="uq_crawl_jobs_request_key"),
         {'comment': 'Crawler job tracking and statistics'}
     )
     
