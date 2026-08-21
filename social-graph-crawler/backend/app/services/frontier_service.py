@@ -2,11 +2,15 @@
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import func, select, update
+import logging
+
+from sqlalchemy import exists, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models import CrawlFrontierItem, CrawlJob, CrawlStatus, FrontierStatus
+
+logger = logging.getLogger(__name__)
 
 
 def utcnow() -> datetime:
@@ -60,18 +64,31 @@ async def claim_item(db: AsyncSession, job_id: UUID, worker_id: str, frontier_id
 
 
 async def refresh_job_status(db: AsyncSession, job_id: UUID) -> None:
-    job = await db.get(CrawlJob, job_id)
-    if job is None:
-        return
+    """Finalize only when PostgreSQL sees no queued/processing frontier rows.
+
+    Every worker may call this. The conditional UPDATE makes repeated/racing
+    calls harmless and avoids deriving parent state from process-local counts.
+    """
+    await db.flush()
     counts = dict((await db.execute(select(CrawlFrontierItem.status, func.count()).where(CrawlFrontierItem.crawl_job_id == job_id).group_by(CrawlFrontierItem.status))).all())
-    terminal = counts.get(FrontierStatus.COMPLETED.value, 0) + counts.get(FrontierStatus.FAILED.value, 0)
-    total = sum(counts.values())
-    job.entity_count = counts.get(FrontierStatus.COMPLETED.value, 0)
-    if total and terminal == total:
-        job.status = CrawlStatus.COMPLETED.value
-        job.completed_at = utcnow()
-        if counts.get(FrontierStatus.FAILED.value):
-            job.error_message = f"{counts[FrontierStatus.FAILED.value]} frontier item(s) failed"
+    non_terminal = exists(select(CrawlFrontierItem.id).where(
+        CrawlFrontierItem.crawl_job_id == job_id,
+        CrawlFrontierItem.status.in_([FrontierStatus.QUEUED.value, FrontierStatus.PROCESSING.value]),
+    ))
+    has_items = exists(select(CrawlFrontierItem.id).where(CrawlFrontierItem.crawl_job_id == job_id))
+    completed_count = counts.get(FrontierStatus.COMPLETED.value, 0)
+    failed_count = counts.get(FrontierStatus.FAILED.value, 0)
+    result = await db.execute(
+        update(CrawlJob)
+        .where(CrawlJob.id == job_id, CrawlJob.status.in_([CrawlStatus.PENDING.value, CrawlStatus.RUNNING.value]), has_items, ~non_terminal)
+        .values(
+            status=CrawlStatus.COMPLETED.value,
+            entity_count=completed_count,
+            completed_at=utcnow(),
+            error_message=(f"{failed_count} frontier item(s) failed" if failed_count else None),
+        )
+    )
+    logger.info("crawl.finalization_checked crawl_job_id=%s frontier_counts=%s finalized=%s", job_id, counts, result.rowcount)
 
 
 async def frontier_counts(db: AsyncSession, job_id: UUID) -> dict[str, int]:
