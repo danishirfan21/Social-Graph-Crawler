@@ -2,8 +2,6 @@
 
 A distributed crawling and data-ingestion portfolio project built with FastAPI, PostgreSQL, Redis, and ARQ. It persists crawl jobs and frontier state in PostgreSQL, distributes committed work to independently scalable workers, and demonstrates retries, duplicate protection, failure tracking, and Prometheus metrics.
 
-The application source is in [`social-graph-crawler/`](social-graph-crawler/).
-
 ## Architecture
 
 ```mermaid
@@ -46,7 +44,6 @@ GitHub Codespaces verification has exercised Docker Compose, PostgreSQL, Redis, 
 ## Run in GitHub Codespaces
 
 ```bash
-cd social-graph-crawler
 ./scripts/verify_codespaces.sh
 ```
 
@@ -71,8 +68,8 @@ The React/D3 frontend remains in the source tree but is intentionally excluded f
 
 ## Further reading
 
-- [V2 implementation plan](social-graph-crawler/docs/V2_IMPLEMENTATION_PLAN.md)
-- [Verification report](social-graph-crawler/docs/VERIFICATION_REPORT.md)
-- [Demo script](social-graph-crawler/docs/DEMO_SCRIPT.md)
-- [Interview notes](social-graph-crawler/docs/INTERVIEW_NOTES.md)
-- [Portfolio copy](social-graph-crawler/docs/PORTFOLIO_COPY.md)
+- [V2 implementation plan](docs/V2_IMPLEMENTATION_PLAN.md)
+- [Verification report](docs/VERIFICATION_REPORT.md)
+- [Demo script](docs/DEMO_SCRIPT.md)
+- [Interview notes](docs/INTERVIEW_NOTES.md)
+- [Portfolio copy](docs/PORTFOLIO_COPY.md)
