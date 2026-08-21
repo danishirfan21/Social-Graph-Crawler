@@ -9,21 +9,31 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
     async_sessionmaker,
 )
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import declarative_base
-from sqlalchemy.pool import NullPool, AsyncAdaptedQueuePool
 
 from app.config import settings
 
 
-# Create async engine
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=settings.DEBUG,
-    pool_size=settings.DATABASE_POOL_SIZE,
-    max_overflow=settings.DATABASE_MAX_OVERFLOW,
-    poolclass=AsyncAdaptedQueuePool if not settings.DEBUG else NullPool,
-    pool_pre_ping=True,  # Verify connections before using
-)
+def create_database_engine():
+    """Create an engine with options supported by the configured database.
+
+    PostgreSQL/asyncpg uses SQLAlchemy's normal async queue pool. SQLite does
+    not accept those pool sizing parameters, so it uses only common options.
+    Alembic owns its short-lived NullPool separately in ``alembic/env.py``.
+    """
+    database_url = make_url(settings.DATABASE_URL)
+    options = {"echo": settings.DEBUG, "pool_pre_ping": True}
+    if database_url.get_backend_name() != "sqlite":
+        options.update(
+            pool_size=settings.DATABASE_POOL_SIZE,
+            max_overflow=settings.DATABASE_MAX_OVERFLOW,
+            pool_timeout=settings.DATABASE_POOL_TIMEOUT,
+        )
+    return create_async_engine(database_url, **options)
+
+
+engine = create_database_engine()
 
 # Create async session factory
 AsyncSessionLocal = async_sessionmaker(
