@@ -36,7 +36,7 @@ def request_key(request: CrawlRequest) -> str:
     return sha256(f"{request.source}|{request.start_entity.strip().lower()}|{request.depth}|{request.max_entities}".encode()).hexdigest()
 
 def fixture_targets(entity: str) -> list[str]:
-    if entity == "v2-demo":
+    if entity == "v2-demo" or entity.startswith("v2-demo-"):
         return ["success", "transient", "permanent", "duplicate", "duplicate"]
     if entity == "slow-demo":
         return ["slow", "slow", "success"]

@@ -40,11 +40,19 @@ curl --fail --silent --show-error http://localhost:8000/health >/dev/null
 curl --fail --silent --show-error http://localhost:8000/ready >/dev/null
 curl --location --fail --silent --show-error http://localhost:8000/metrics >/dev/null
 
-echo "Starting deterministic V2 fixture crawl..."
-job_json=$(curl --fail --silent --show-error \
+verification_run="v2-demo-$(date +%s)-$$"
+echo "Starting deterministic V2 fixture crawl: ${verification_run}"
+start_response=$(curl --silent --show-error -w '\n%{http_code}' \
   -X POST http://localhost:8000/api/v1/crawl/start \
   -H 'Content-Type: application/json' \
-  --data '{"source":"fixture","start_entity":"v2-demo","depth":2,"max_entities":10}')
+  --data "{\"source\":\"fixture\",\"start_entity\":\"${verification_run}\",\"depth\":2,\"max_entities\":10}")
+start_status=$(tail -n 1 <<<"$start_response")
+job_json=$(sed '$d' <<<"$start_response")
+if [[ "$start_status" != "202" ]]; then
+  echo "Start crawl failed: HTTP ${start_status}" >&2
+  echo "$job_json" >&2
+  fail "Unable to create verification crawl."
+fi
 job_id=$(python3 -c 'import json, sys; print(json.load(sys.stdin)["id"])' <<<"$job_json")
 
 for _ in $(seq 1 30); do
