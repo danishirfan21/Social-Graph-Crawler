@@ -34,7 +34,7 @@ Static checks actually run for this addition:
 |---|---|
 | `python -m json.tool .devcontainer/devcontainer.json` | Passed. |
 | `bash -n scripts/verify_codespaces.sh` | Passed. |
-| `$env:PYTHONPATH='backend'; .\.venv\Scripts\python -m pytest backend\tests --no-cov` | **10 passed**. |
+| `$env:PYTHONPATH='backend'; .\.venv\Scripts\python -m pytest backend\tests --no-cov` | **8 passed** at the time of the Codespaces static check. |
 
 The Docker image was corrected to include Alembic/config/test files and to use a standard-library health check instead of the undeclared `requests` package. Compose now health-checks the backend readiness endpoint and no longer uses fixed container or network names, which makes it safer for Codespaces projects.
 
@@ -51,7 +51,7 @@ Actual post-fix checks run on this host:
 | Command | Result |
 |---|---|
 | Import engine with `DATABASE_URL=postgresql+asyncpg://...` and `DEBUG=true` | Passed; reported `AsyncAdaptedQueuePool` without connecting to PostgreSQL. |
-| `$env:PYTHONPATH='backend'; .\.venv\Scripts\python -m pytest backend\tests --no-cov` | **8 passed**. |
+| `$env:PYTHONPATH='backend'; .\.venv\Scripts\python -m pytest backend\tests --no-cov` | **10 passed**. |
 | `alembic upgrade head --sql` using PostgreSQL URL | Generated PostgreSQL migration SQL successfully; this is offline SQL generation, not a live migration. |
 
 Docker remains unavailable in this workspace, so the repaired `./scripts/verify_codespaces.sh` has **not** been re-run here. The earlier Codespaces evidence confirms that PostgreSQL and Redis containers became healthy before the backend failure, but this report does not claim a full successful container verification. The Redis `vm.overcommit_memory` warning is a host-kernel recommendation; it is non-blocking for this small deterministic demo when Redis is healthy. It should not be changed from inside the Codespace.
