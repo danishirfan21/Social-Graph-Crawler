@@ -45,7 +45,6 @@ class Settings(BaseSettings):
     # Crawler Settings
     MAX_CRAWL_DEPTH: int = 3
     MAX_NODES_PER_JOB: int = 1000
-    CRAWLER_CONCURRENCY: int = 10
     REQUEST_TIMEOUT: int = 30
     CRAWLER_MAX_RETRIES: int = 3
     CRAWLER_BACKOFF_SECONDS: float = 0.25
