@@ -6,7 +6,7 @@
 |---|---|
 | `python -m venv .venv` | Created local test environment. |
 | `python -m pip install` (backend runtime/test dependencies) | Installed enough pinned dependencies to run FastAPI, Alembic, and tests. |
-| `$env:PYTHONPATH='backend'; .\.venv\Scripts\python -m pytest backend\tests --no-cov` | **7 passed**. Exercises health, node duplicate behavior, deterministic crawl persistence, duplicate graph records, failure recording, and API job lifecycle. |
+| `cd backend; $env:PYTHONPATH='.'; ..\.venv\Scripts\python -m pytest` | **8 passed**. Exercises health, node duplicate behavior, deterministic crawl persistence, duplicate graph records, failure recording, reruns after completion, and API job lifecycle. |
 | `DATABASE_URL=sqlite+aiosqlite:///./migration-check.db; alembic upgrade head` | Succeeded from a clean SQLite file as a migration smoke test. |
 | `uvicorn app.main:app --host 127.0.0.1 --port 8010` with the migrated SQLite database | Started successfully; `GET /health` returned healthy JSON and `GET /docs` returned HTTP 200. |
 | `alembic upgrade head --sql` with PostgreSQL URL | Generated PostgreSQL migration SQL successfully; no database connection was made by this offline command. |

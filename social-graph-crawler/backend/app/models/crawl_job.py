@@ -5,7 +5,7 @@ CrawlJob model for tracking crawler execution and status.
 from datetime import datetime
 from enum import Enum
 from uuid import UUID, uuid4
-from sqlalchemy import String, DateTime, Integer, Text, UniqueConstraint, Uuid
+from sqlalchemy import String, DateTime, Integer, Text, Index, Uuid, text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -107,7 +107,7 @@ class CrawlJob(Base):
     )
     
     __table_args__ = (
-        UniqueConstraint("request_key", name="uq_crawl_jobs_request_key"),
+        Index("uq_active_crawl_request", "request_key", unique=True, postgresql_where=text("status IN ('pending', 'running')"), sqlite_where=text("status IN ('pending', 'running')")),
         {'comment': 'Crawler job tracking and statistics'}
     )
     

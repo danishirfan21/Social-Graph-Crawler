@@ -21,3 +21,10 @@ async def test_fixture_job_failure_is_recorded(client, test_engine, monkeypatch)
     result = await client.get(f"/api/v1/crawl/jobs/{job_id}")
     assert result.json()["status"] == "failed"
     assert "instructed to fail" in result.json()["error_message"]
+
+
+async def test_completed_request_can_be_run_again(client, test_engine, monkeypatch):
+    monkeypatch.setattr(crawl, "AsyncSessionLocal", async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False))
+    payload = {"source": "fixture", "start_entity": "Python", "depth": 2, "max_entities": 10}
+    assert (await client.post("/api/v1/crawl/start", json=payload)).status_code == 202
+    assert (await client.post("/api/v1/crawl/start", json=payload)).status_code == 202
