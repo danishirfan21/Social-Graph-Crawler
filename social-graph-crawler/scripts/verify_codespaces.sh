@@ -29,7 +29,7 @@ compose exec -T backend alembic upgrade head
 echo "Checking API health and readiness..."
 curl --fail --silent --show-error http://localhost:8000/health >/dev/null
 curl --fail --silent --show-error http://localhost:8000/ready >/dev/null
-curl --fail --silent --show-error http://localhost:8000/metrics >/dev/null
+curl --location --fail --silent --show-error http://localhost:8000/metrics >/dev/null
 
 echo "Starting deterministic V2 fixture crawl..."
 job_json=$(curl --fail --silent --show-error \
