@@ -23,3 +23,11 @@
 | Ruff/Black | Not run. The original pinned lint packages could not be installed within the available network time; this report intentionally does not claim lint success. |
 
 No coverage percentage, performance number, Docker success, or live external API success is claimed.
+
+## Codespaces and container verification — 2026-08-21
+
+Added `.devcontainer/devcontainer.json` using the official Docker-in-Docker devcontainer feature and forwarding 8000, 5432, and 6379. Added `scripts/verify_codespaces.sh`, which starts Compose, waits for health checks, runs Alembic, checks `/health` and `/ready`, runs the fixture job, queries PostgreSQL directly, and runs tests inside the backend container.
+
+The Docker image was corrected to include Alembic/config/test files and to use a standard-library health check instead of the undeclared `requests` package. Compose now health-checks the backend readiness endpoint and no longer uses fixed container or network names, which makes it safer for Codespaces projects.
+
+`docker`, `docker compose config`, and container execution were **not run** here: the Docker CLI is not installed on this Windows machine. Therefore PostgreSQL, Redis, backend container startup, migrations against a live PostgreSQL container, fixture persistence in Compose, and containerized tests remain unverified until `./scripts/verify_codespaces.sh` is run in a Codespace.

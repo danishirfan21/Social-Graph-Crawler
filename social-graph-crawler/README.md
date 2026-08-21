@@ -45,6 +45,26 @@ curl http://localhost:8000/ready
 
 The backend container applies `alembic upgrade head` before starting Uvicorn. No Docker command was available in the audit environment, so this Compose path remains to be verified there.
 
+## Run in GitHub Codespaces
+
+1. On GitHub, choose **Code → Codespaces → Create codespace**.
+2. Wait for the development container to finish starting.
+3. Run one command from the repository root:
+
+   ```bash
+   ./scripts/verify_codespaces.sh
+   ```
+
+It builds and starts PostgreSQL, Redis, and FastAPI; runs migrations; executes a deterministic fixture crawl; checks PostgreSQL persistence; and runs the backend tests. A successful run ends with `VERIFY SUCCEEDED`.
+
+Codespaces forwards FastAPI on port 8000 (open the forwarded URL with `/docs` for Swagger). PostgreSQL (5432) and Redis (6379) are also forwarded for optional inspection. Stop the stack with:
+
+```bash
+docker compose down
+```
+
+The frontend is not included in Compose: it has not been built or verified and currently does not render persisted edges. The backend pipeline is the supported Codespaces verification path.
+
 ## Start a local crawl
 
 The fixture source is deterministic and requires no credentials:

@@ -1,10 +1,7 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
     image: postgres:16-alpine
-    container_name: social-graph-db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -22,7 +19,6 @@ services:
   # Redis Cache
   redis:
     image: redis:7-alpine
-    container_name: social-graph-redis
     ports:
       - "6379:6379"
     volumes:
@@ -38,7 +34,6 @@ services:
     build:
       context: ./backend
       dockerfile: ../Dockerfile
-    container_name: social-graph-api
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     volumes:
       - ./backend:/app
@@ -55,11 +50,16 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
 
   # pgAdmin (optional - for database management)
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: social-graph-pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: admin
@@ -73,7 +73,3 @@ services:
 volumes:
   postgres_data:
   redis_data:
-
-networks:
-  default:
-    name: social-graph-network
