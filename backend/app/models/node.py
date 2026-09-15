@@ -14,13 +14,13 @@ from app.database import Base
 
 class Node(Base):
     """
-    Represents an entity (user, repo, subreddit, page) in the graph.
+    Represents an entity (account, user, repository, article) in the graph.
     
     Attributes:
         id: Unique identifier (UUID)
-        entity_type: Type of entity (user, repo, subreddit, page)
+        entity_type: Type of entity (account, user, repository, article)
         entity_id: External ID from the source platform
-        source: Data source (reddit, github, wikipedia)
+        source: Data source (mastodon, github, wikipedia)
         display_name: Human-readable name
         metadata: Flexible JSON storage for source-specific data
         created_at: Timestamp of creation
@@ -42,7 +42,7 @@ class Node(Base):
         String(50),
         nullable=False,
         index=True,
-        comment="Type: user, repo, subreddit, page"
+        comment="Type: account, user, repository, article"
     )
     
     entity_id: Mapped[str] = mapped_column(
@@ -55,7 +55,7 @@ class Node(Base):
         String(50),
         nullable=False,
         index=True,
-        comment="Source: reddit, github, wikipedia"
+        comment="Source: mastodon, github, wikipedia"
     )
     
     display_name: Mapped[str] = mapped_column(

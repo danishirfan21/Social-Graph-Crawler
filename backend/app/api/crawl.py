@@ -18,7 +18,7 @@ from app.services.queue import task_queue
 router = APIRouter()
 
 class CrawlRequest(BaseModel):
-    source: Literal["fixture", "reddit", "github", "wikipedia"]
+    source: Literal["fixture", "mastodon", "github", "wikipedia"]
     start_entity: str = Field(min_length=1, max_length=255)
     depth: int = Field(default=2, ge=1, le=5)
     max_entities: int = Field(default=100, ge=1, le=5000)

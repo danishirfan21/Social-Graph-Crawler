@@ -17,7 +17,7 @@ from app.services.frontier_service import claim_item, refresh_job_status, utcnow
 from app.services.metrics import frontier_completed, frontier_failed, frontier_retries, processing_seconds, worker_tasks
 from app.crawlers.fixture_crawler import FixtureCrawler
 from app.crawlers.github_crawler import GitHubCrawler
-from app.crawlers.reddit_crawler import RedditCrawler
+from app.crawlers.mastodon_crawler import MastodonCrawler
 from app.crawlers.wikipedia_crawler import WikipediaCrawler
 
 logger = logging.getLogger(__name__)
@@ -67,7 +67,7 @@ async def persist_fixture(db, job: CrawlJob, item: CrawlFrontierItem) -> None:
 CRAWLERS = {
     "fixture": FixtureCrawler,
     "github": GitHubCrawler,
-    "reddit": RedditCrawler,
+    "mastodon": MastodonCrawler,
     "wikipedia": WikipediaCrawler,
 }
 

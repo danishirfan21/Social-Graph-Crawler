@@ -1,6 +1,6 @@
 # Social Graph Crawler
 
-A local-first graph-crawling application built with FastAPI, PostgreSQL, Redis, ARQ, React, and D3. It crawls public GitHub, Reddit, and Wikipedia data into a persistent graph and visualizes the resulting nodes and relationships.
+A local-first graph-crawling application built with FastAPI, PostgreSQL, Redis, ARQ, React, and D3. It crawls public Mastodon, GitHub, and Wikipedia data into a persistent graph and visualizes the resulting nodes and relationships.
 
 ## Architecture
 
@@ -62,7 +62,7 @@ For frontend-only development outside Docker, use Node.js 20+, then run `npm ins
 
 - **Wikipedia** works without credentials; enter an article title such as `Python (programming language)`.
 - **GitHub** works with public data. Set `GITHUB_TOKEN` in `.env` to avoid the low anonymous rate limit.
-- **Reddit** requires `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET` from a script-type Reddit application. The crawler uses OAuth client credentials and reports a clear job failure when they are absent or rejected.
+- **Mastodon** works with public data. Enter a full handle such as `Gargron@mastodon.social`; the crawler stores the account and its visible following graph. `MASTODON_ACCESS_TOKEN` is optional for instances that restrict public relationship endpoints.
 - **Fixture** is an offline test source. `v2-demo` exercises successful work, retry behavior, a permanent failure, and duplicate protection.
 
 Each submitted job carries its source, depth, and entity limit into a durable PostgreSQL frontier record. Workers select the crawler matching that source, persist graph nodes/edges, and finalize the job once its frontier is terminal.

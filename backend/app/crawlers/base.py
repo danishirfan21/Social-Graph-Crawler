@@ -77,7 +77,7 @@ class BaseCrawler(ABC):
     
     @abstractmethod
     def get_source_name(self) -> str:
-        """Return the name of the data source (e.g., 'reddit', 'github')."""
+        """Return the name of the data source (e.g., 'mastodon', 'github')."""
         pass
     
     @abstractmethod

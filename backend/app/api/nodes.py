@@ -31,9 +31,9 @@ async def create_node(
     """
     Create a new node.
     
-    - **entity_type**: Type of entity (user, repo, subreddit, page)
+    - **entity_type**: Type of entity (account, user, repository, article)
     - **entity_id**: External ID from source platform
-    - **source**: Data source (reddit, github, wikipedia)
+    - **source**: Data source (mastodon, github, wikipedia)
     - **display_name**: Human-readable name
     - **metadata**: Optional metadata dictionary
     """

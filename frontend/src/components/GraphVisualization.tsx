@@ -171,7 +171,7 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
 
   function getNodeColor(source: string): string {
     const colors: Record<string, string> = {
-      reddit: '#FF4500',
+      mastodon: '#6364FF',
       github: '#333333',
       wikipedia: '#000000',
     };

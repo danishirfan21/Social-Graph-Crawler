@@ -52,7 +52,7 @@ class CrawlJob(Base):
         String(50),
         nullable=False,
         index=True,
-        comment="Source: reddit, github, wikipedia"
+        comment="Source: mastodon, github, wikipedia"
     )
     start_entity: Mapped[str] = mapped_column(String(255), nullable=False)
     request_key: Mapped[str] = mapped_column(String(64), nullable=False)

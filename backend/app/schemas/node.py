@@ -10,9 +10,9 @@ from pydantic import BaseModel, Field, ConfigDict
 
 class NodeBase(BaseModel):
     """Base schema for Node with common fields."""
-    entity_type: str = Field(..., description="Type of entity", examples=["user", "repo", "subreddit"])
+    entity_type: str = Field(..., description="Type of entity", examples=["account", "user", "repository"])
     entity_id: str = Field(..., description="External ID from source platform")
-    source: str = Field(..., description="Data source", examples=["reddit", "github", "wikipedia"])
+    source: str = Field(..., description="Data source", examples=["mastodon", "github", "wikipedia"])
     display_name: str = Field(..., description="Human-readable name")
     metadata: Optional[Dict] = Field(default_factory=dict, description="Source-specific metadata")
 

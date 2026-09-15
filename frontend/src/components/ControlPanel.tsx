@@ -35,7 +35,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             onChange={(e) => setSource(e.target.value)}
             disabled={loading}
           >
-            <option value="reddit">Reddit</option>
+            <option value="mastodon">Mastodon</option>
             <option value="github">GitHub</option>
             <option value="wikipedia">Wikipedia</option>
             <option value="fixture">Offline fixture</option>
@@ -50,7 +50,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             value={entity}
             onChange={(e) => setEntity(e.target.value)}
             placeholder={
-              source === 'reddit' ? 'subreddit name' :
+              source === 'mastodon' ? 'handle@instance (e.g., Gargron@mastodon.social)' :
               source === 'github' ? 'username or owner/repo' :
               source === 'wikipedia' ? 'article title' : 'v2-demo or a label'
             }
@@ -85,7 +85,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       <div className="help-text">
         <h3>Instructions:</h3>
         <ul>
-          <li><strong>Reddit:</strong> Enter a subreddit name (e.g., "python")</li>
+          <li><strong>Mastodon:</strong> Enter a full handle (e.g., <code>Gargron@mastodon.social</code>). Public profiles and visible following relationships work without a key.</li>
           <li><strong>GitHub:</strong> Enter username (e.g., "torvalds") or repo (e.g., "facebook/react")</li>
           <li><strong>Wikipedia:</strong> Enter article title (e.g., "Python_(programming_language)")</li>
           <li><strong>Offline fixture:</strong> Use <code>v2-demo</code> to test retries and failures without a network connection.</li>

@@ -32,12 +32,12 @@ class Settings(BaseSettings):
     REDIS_CACHE_TTL: int = 3600  # 1 hour
     
     # External APIs
-    REDDIT_CLIENT_ID: str = ""
-    REDDIT_CLIENT_SECRET: str = ""
     CRAWLER_USER_AGENT: str = "SocialGraphCrawler/1.0 (local development)"
     
     GITHUB_TOKEN: str = ""
     GITHUB_API_BASE: str = "https://api.github.com"
+    MASTODON_INSTANCE: str = "mastodon.social"
+    MASTODON_ACCESS_TOKEN: str = ""
     
     # Rate Limiting
     RATE_LIMIT_REQUESTS: int = 100
