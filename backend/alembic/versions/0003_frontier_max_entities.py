@@ -17,7 +17,11 @@ def upgrade() -> None:
         "crawl_frontier_items",
         sa.Column("max_entities", sa.Integer(), nullable=False, server_default="100"),
     )
-    op.alter_column("crawl_frontier_items", "max_entities", server_default=None)
+    # SQLite cannot issue ``ALTER COLUMN ... DROP DEFAULT``. Keeping the
+    # default there is harmless and lets the development configuration use a
+    # file-backed SQLite database without a migration failure.
+    if op.get_bind().dialect.name != "sqlite":
+        op.alter_column("crawl_frontier_items", "max_entities", server_default=None)
 
 
 def downgrade() -> None:
