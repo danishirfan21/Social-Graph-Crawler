@@ -5,6 +5,7 @@ Loads configuration from environment variables with validation.
 
 from functools import lru_cache
 from typing import List, Literal
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -34,7 +35,13 @@ class Settings(BaseSettings):
     # External APIs
     CRAWLER_USER_AGENT: str = "SocialGraphCrawler/1.0 (local development)"
     
-    GITHUB_TOKEN: str = ""
+    # Codespaces reserves the GITHUB_ prefix for its own injected variables.
+    # Keep GITHUB_TOKEN for local .env files, but accept the valid Codespaces
+    # secret name first.
+    GITHUB_TOKEN: str = Field(
+        default="",
+        validation_alias=AliasChoices("SOCIAL_GRAPH_GITHUB_TOKEN", "GITHUB_TOKEN"),
+    )
     GITHUB_API_BASE: str = "https://api.github.com"
     MASTODON_INSTANCE: str = "mastodon.social"
     MASTODON_ACCESS_TOKEN: str = ""

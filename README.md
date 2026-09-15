@@ -61,7 +61,7 @@ For frontend-only development outside Docker, use Node.js 20+, then run `npm ins
 ## Sources and credentials
 
 - **Wikipedia** works without credentials; enter an article title such as `Python (programming language)`.
-- **GitHub** works with public data. Set `GITHUB_TOKEN` in `.env` to avoid the low anonymous rate limit.
+- **GitHub** works with public data. Set `GITHUB_TOKEN` in a local `.env` to avoid the low anonymous rate limit. In Codespaces, use the secret name `SOCIAL_GRAPH_GITHUB_TOKEN` (Codespaces does not allow secret names beginning with `GITHUB_`).
 - **Mastodon** works with public data. Enter a full handle such as `Gargron@mastodon.social`; the crawler stores the account and its visible following graph. `MASTODON_ACCESS_TOKEN` is optional for instances that restrict public relationship endpoints.
 - **Fixture** is an offline test source. `v2-demo` exercises successful work, retry behavior, a permanent failure, and duplicate protection.
 
