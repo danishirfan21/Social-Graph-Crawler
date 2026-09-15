@@ -82,8 +82,8 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       .data(links)
       .enter().append('line')
       .attr('class', 'link')
-      .attr('stroke', '#999')
-      .attr('stroke-opacity', 0.6)
+      .attr('stroke', '#62749a')
+      .attr('stroke-opacity', 0.7)
       .attr('stroke-width', (d: D3Link) => Math.sqrt(d.weight) * 2)
       .attr('marker-end', 'url(#end)');
 
@@ -93,10 +93,10 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       .data(data.nodes)
       .enter().append('circle')
       .attr('class', 'node')
-      .attr('r', 8)
+      .attr('r', 10)
       .attr('fill', (d: Node) => getNodeColor(d.source))
-      .attr('stroke', '#fff')
-      .attr('stroke-width', 2)
+      .attr('stroke', '#cbd5e1')
+      .attr('stroke-width', 1.5)
       .on('click', (event, d: Node) => {
         event.stopPropagation();
         if (onNodeClick) onNodeClick(d);
@@ -109,7 +109,7 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       .data(data.nodes)
       .enter().append('text')
       .text((d: Node) => d.display_name)
-      .attr('font-size', 10)
+      .attr('class', 'node-label')
       .attr('dx', 12)
       .attr('dy', 4);
 
@@ -184,7 +184,8 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
         ref={svgRef}
         width={width}
         height={height}
-        style={{ border: '1px solid #ddd', background: '#fff' }}
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="xMidYMid meet"
       />
     </div>
   );

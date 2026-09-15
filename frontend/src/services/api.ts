@@ -46,6 +46,7 @@ export interface CrawlRequest {
 export interface CrawlJob {
   id: string;
   source: string;
+  start_entity: string;
   status: string;
   entity_count: number;
   edge_count: number;
