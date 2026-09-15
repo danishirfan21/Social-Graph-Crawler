@@ -95,6 +95,11 @@ export const listNodes = async (
   return response.data;
 };
 
+export const listEdges = async (page: number = 1, pageSize: number = 500): Promise<any> => {
+  const response = await api.get('/edges/', { params: { page, page_size: pageSize } });
+  return response.data;
+};
+
 export const getNode = async (nodeId: string): Promise<Node> => {
   const response = await api.get(`/nodes/${nodeId}`);
   return response.data;

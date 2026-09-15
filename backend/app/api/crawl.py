@@ -29,7 +29,7 @@ class CrawlJobResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 class FrontierResponse(BaseModel):
-    id: UUID; target: str; source: str; depth: int; status: str; attempt_count: int; last_error: str | None
+    id: UUID; target: str; source: str; depth: int; max_entities: int; status: str; attempt_count: int; last_error: str | None
     model_config = ConfigDict(from_attributes=True)
 
 def request_key(request: CrawlRequest) -> str:
@@ -53,7 +53,13 @@ async def start_crawl(request: CrawlRequest, db: AsyncSession = Depends(get_db))
     try:
         await db.flush()
         targets = fixture_targets(request.start_entity) if request.source == "fixture" else [request.start_entity]
-        frontier_ids = [item_id for target in targets if (item_id := await add_frontier_item(db, job.id, request.source, target))]
+        frontier_ids = [
+            item_id
+            for target in targets
+            if (item_id := await add_frontier_item(
+                db, job.id, request.source, target, request.depth, request.max_entities
+            ))
+        ]
         await db.commit()
     except IntegrityError:
         await db.rollback()

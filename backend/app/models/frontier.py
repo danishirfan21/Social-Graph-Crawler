@@ -24,6 +24,7 @@ class CrawlFrontierItem(Base):
     target: Mapped[str] = mapped_column(String(512), nullable=False)
     source: Mapped[str] = mapped_column(String(50), nullable=False)
     depth: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    max_entities: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default=FrontierStatus.QUEUED.value)
     attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     worker_id: Mapped[str | None] = mapped_column(String(128), nullable=True)

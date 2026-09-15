@@ -15,6 +15,10 @@ from app.models import CrawlFrontierItem, CrawlJob, CrawlStatus, Edge, FrontierS
 from sqlalchemy import select
 from app.services.frontier_service import claim_item, refresh_job_status, utcnow
 from app.services.metrics import frontier_completed, frontier_failed, frontier_retries, processing_seconds, worker_tasks
+from app.crawlers.fixture_crawler import FixtureCrawler
+from app.crawlers.github_crawler import GitHubCrawler
+from app.crawlers.reddit_crawler import RedditCrawler
+from app.crawlers.wikipedia_crawler import WikipediaCrawler
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +59,32 @@ async def persist_fixture(db, job: CrawlJob, item: CrawlFrontierItem) -> None:
     edge = (await db.execute(select(Edge).where(Edge.source_node_id == child.id, Edge.target_node_id == root.id, Edge.relationship_type == "mentions"))).scalar_one_or_none()
     if edge is None:
         db.add(Edge(source_node_id=child.id, target_node_id=root.id, relationship_type="mentions", weight=1.0, data={"fixture": True}))
+    await db.flush()
+    job.entity_count += 2
+    job.edge_count += 1
+
+
+CRAWLERS = {
+    "fixture": FixtureCrawler,
+    "github": GitHubCrawler,
+    "reddit": RedditCrawler,
+    "wikipedia": WikipediaCrawler,
+}
+
+
+async def persist_source(db, job: CrawlJob, item: CrawlFrontierItem) -> None:
+    """Run the crawler selected by the API request, inside this leased job."""
+    crawler_type = CRAWLERS.get(item.source)
+    if crawler_type is None:
+        raise ValueError(f"Unsupported crawl source: {item.source}")
+    if item.source == "fixture":
+        await persist_fixture(db, job, item)
+        return
+    async with crawler_type(db, rate_limit=settings.CRAWLER_RATE_LIMIT, timeout=settings.REQUEST_TIMEOUT) as crawler:
+        await crawler.crawl(item.target, depth=item.depth, max_entities=item.max_entities, job=job)
+        # A live crawler's counts describe this crawl, not the entire database.
+        job.entity_count = len(crawler.discovered_nodes)
+        job.edge_count = len(crawler.discovered_edges)
 
 
 async def process_frontier_item(ctx, job_id: str, frontier_item_id: str) -> None:
@@ -73,7 +103,7 @@ async def process_frontier_item(ctx, job_id: str, frontier_item_id: str) -> None
         try:
             await throttle(ctx["redis"], item.source)
             job = await db.get(CrawlJob, job_uuid)
-            await persist_fixture(db, job, item)
+            await persist_source(db, job, item)
             item.status, item.completed_at, item.lease_expires_at = FrontierStatus.COMPLETED.value, utcnow(), None
             frontier_completed.inc()
             worker_tasks.labels("completed").inc()

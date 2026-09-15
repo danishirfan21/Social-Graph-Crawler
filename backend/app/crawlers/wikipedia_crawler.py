@@ -31,7 +31,7 @@ class WikipediaCrawler(BaseCrawler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.headers = {
-            "User-Agent": settings.REDDIT_USER_AGENT
+            "User-Agent": settings.CRAWLER_USER_AGENT
         }
     
     def get_source_name(self) -> str:
@@ -62,6 +62,8 @@ class WikipediaCrawler(BaseCrawler):
             
             # Start crawling from the article
             await self._crawl_article(start_entity, depth, max_entities)
+            if not self.discovered_nodes:
+                raise ValueError(f"Wikipedia article not found: {start_entity}")
             
             # Update job statistics
             await self.update_crawl_job(

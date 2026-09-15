@@ -167,9 +167,22 @@ async def get_graph_stats(db: AsyncSession = Depends(get_db)):
     max_possible_edges = total_nodes * (total_nodes - 1) / 2
     density = (total_edges / max_possible_edges) if max_possible_edges > 0 else 0
     
-    # Connected components (simplified - just counting isolated nodes)
-    # A proper implementation would use Union-Find or DFS
-    connected_components = total_nodes  # Placeholder
+    # Count weakly connected components. This is calculated in application
+    # memory so it behaves consistently on PostgreSQL and SQLite.
+    node_ids = set((await db.execute(select(Node.id))).scalars().all())
+    adjacency = {node_id: set() for node_id in node_ids}
+    for source_id, target_id in (await db.execute(select(Edge.source_node_id, Edge.target_node_id))).all():
+        adjacency[source_id].add(target_id)
+        adjacency[target_id].add(source_id)
+    connected_components = 0
+    while node_ids:
+        connected_components += 1
+        pending = [node_ids.pop()]
+        while pending:
+            current = pending.pop()
+            neighbors = adjacency[current] & node_ids
+            node_ids.difference_update(neighbors)
+            pending.extend(neighbors)
     
     return GraphStats(
         total_nodes=total_nodes,

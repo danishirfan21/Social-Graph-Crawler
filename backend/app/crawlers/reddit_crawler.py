@@ -1,10 +1,11 @@
 """
 Reddit crawler for discovering subreddit and user relationships.
-Uses Reddit's public JSON API (no authentication required for public data).
+Uses Reddit's OAuth API for public data.
 """
 
 import asyncio
 import logging
+import aiohttp
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
@@ -30,11 +31,43 @@ class RedditCrawler(BaseCrawler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.headers = {
-            "User-Agent": settings.REDDIT_USER_AGENT
+            "User-Agent": settings.CRAWLER_USER_AGENT
         }
     
     def get_source_name(self) -> str:
         return "reddit"
+
+    async def __aenter__(self):
+        """Authenticate with Reddit before making API calls.
+
+        Reddit's public JSON endpoints are unreliable for applications and are
+        frequently rate-limited. Using the documented client-credentials flow
+        makes failures explicit and gives every request a proper bearer token.
+        """
+        await super().__aenter__()
+        if not settings.REDDIT_CLIENT_ID or not settings.REDDIT_CLIENT_SECRET:
+            await self.__aexit__(None, None, None)
+            raise RuntimeError(
+                "Reddit crawling requires REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET. "
+                "Create a Reddit script app and add its credentials to .env."
+            )
+        assert self.session is not None
+        auth = aiohttp.BasicAuth(settings.REDDIT_CLIENT_ID, settings.REDDIT_CLIENT_SECRET)
+        async with self.session.post(
+            "https://www.reddit.com/api/v1/access_token",
+            auth=auth,
+            data={"grant_type": "client_credentials"},
+            headers={"User-Agent": settings.CRAWLER_USER_AGENT},
+        ) as response:
+            response.raise_for_status()
+            payload = await response.json()
+        token = payload.get("access_token")
+        if not token:
+            await self.__aexit__(None, None, None)
+            raise RuntimeError("Reddit did not return an access token")
+        self.headers["Authorization"] = f"Bearer {token}"
+        self.BASE_URL = "https://oauth.reddit.com"
+        return self
     
     async def crawl(
         self,
@@ -61,6 +94,8 @@ class RedditCrawler(BaseCrawler):
             
             # Start crawling from the subreddit
             await self._crawl_subreddit(start_entity, depth, max_entities)
+            if not self.discovered_nodes:
+                raise ValueError(f"No public Reddit data found for r/{start_entity}")
             
             # Update job statistics
             await self.update_crawl_job(

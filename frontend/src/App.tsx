@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { GraphVisualization } from './components/GraphVisualization';
 import { NodeDetails } from './components/NodeDetails';
 import { ControlPanel } from './components/ControlPanel';
-import { GraphData, Node, startCrawl, listNodes, getCrawlJob } from './services/api';
+import { GraphData, Node, startCrawl, listNodes, listEdges, getCrawlJob } from './services/api';
 import './App.css';
 
 function App() {
@@ -64,18 +64,14 @@ function App() {
 
   const loadGraphData = async () => {
     try {
-      const response = await listNodes(1, 100);
-      
-      // Transform to graph format
-      const nodes = response.items;
-      const edges: any[] = [];
-      
-      // You might want to fetch actual edges here
-      // For now, we're just showing nodes
+      const [nodeResponse, edgeResponse] = await Promise.all([
+        listNodes(1, 500),
+        listEdges(1, 1000),
+      ]);
       
       setGraphData({
-        nodes,
-        edges,
+        nodes: nodeResponse.items,
+        edges: edgeResponse.items,
         metadata: {},
       });
     } catch (err: any) {

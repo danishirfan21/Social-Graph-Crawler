@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     # External APIs
     REDDIT_CLIENT_ID: str = ""
     REDDIT_CLIENT_SECRET: str = ""
-    REDDIT_USER_AGENT: str = "SocialGraphCrawler/1.0"
+    CRAWLER_USER_AGENT: str = "SocialGraphCrawler/1.0 (local development)"
     
     GITHUB_TOKEN: str = ""
     GITHUB_API_BASE: str = "https://api.github.com"

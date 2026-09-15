@@ -4,7 +4,7 @@ from uuid import UUID
 
 import logging
 
-from sqlalchemy import exists, func, select, update
+from sqlalchemy import case, exists, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -17,10 +17,23 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
-async def add_frontier_item(db: AsyncSession, job_id: UUID, source: str, target: str, depth: int = 1) -> UUID | None:
+async def add_frontier_item(
+    db: AsyncSession,
+    job_id: UUID,
+    source: str,
+    target: str,
+    depth: int = 1,
+    max_entities: int = 100,
+) -> UUID | None:
     try:
         async with db.begin_nested():
-            item = CrawlFrontierItem(crawl_job_id=job_id, source=source, target=target, depth=depth)
+            item = CrawlFrontierItem(
+                crawl_job_id=job_id,
+                source=source,
+                target=target,
+                depth=depth,
+                max_entities=max_entities,
+            )
             db.add(item)
             await db.flush()
         return item.id
@@ -83,7 +96,9 @@ async def refresh_job_status(db: AsyncSession, job_id: UUID) -> None:
         .where(CrawlJob.id == job_id, CrawlJob.status.in_([CrawlStatus.PENDING.value, CrawlStatus.RUNNING.value]), has_items, ~non_terminal)
         .values(
             status=CrawlStatus.COMPLETED.value,
-            entity_count=completed_count,
+            # Older jobs/frontier-only callers have no source-derived counts.
+            # Preserve real crawler counts whenever the worker supplied them.
+            entity_count=case((CrawlJob.entity_count == 0, completed_count), else_=CrawlJob.entity_count),
             completed_at=utcnow(),
             error_message=(f"{failed_count} frontier item(s) failed" if failed_count else None),
         )

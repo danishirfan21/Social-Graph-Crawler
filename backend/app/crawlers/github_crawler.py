@@ -32,7 +32,7 @@ class GitHubCrawler(BaseCrawler):
         super().__init__(*args, **kwargs)
         self.headers = {
             "Accept": "application/vnd.github+json",
-            "User-Agent": settings.REDDIT_USER_AGENT
+            "User-Agent": settings.CRAWLER_USER_AGENT
         }
         if settings.GITHUB_TOKEN:
             self.headers["Authorization"] = f"Bearer {settings.GITHUB_TOKEN}"
@@ -71,6 +71,9 @@ class GitHubCrawler(BaseCrawler):
             else:
                 # It's a user
                 await self._crawl_user(start_entity, depth, max_entities)
+
+            if not self.discovered_nodes:
+                raise ValueError(f"No public GitHub user or repository found for {start_entity}")
             
             # Update job statistics
             await self.update_crawl_job(

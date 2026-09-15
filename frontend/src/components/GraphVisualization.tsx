@@ -18,6 +18,11 @@ interface D3Node extends Node {
   vy?: number;
 }
 
+interface D3Link extends Edge {
+  source: string | D3Node;
+  target: string | D3Node;
+}
+
 export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
   data,
   onNodeClick,
@@ -25,7 +30,7 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
   height = 800,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
-  const simulationRef = useRef<d3.Simulation<D3Node, Edge> | null>(null);
+  const simulationRef = useRef<d3.Simulation<D3Node, D3Link> | null>(null);
 
   useEffect(() => {
     if (!data || !svgRef.current) return;
@@ -53,9 +58,16 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       .attr('d', 'M0,-5L10,0L0,5')
       .attr('fill', '#999');
 
+    // D3 expects `source`/`target`; API edges intentionally expose explicit UUID fields.
+    const links: D3Link[] = data.edges.map((edge) => ({
+      ...edge,
+      source: edge.source_node_id,
+      target: edge.target_node_id,
+    }));
+
     // Create force simulation
     const simulation = d3.forceSimulation<D3Node>(data.nodes as D3Node[])
-      .force('link', d3.forceLink<D3Node, Edge>(data.edges)
+      .force('link', d3.forceLink<D3Node, D3Link>(links)
         .id((d: any) => d.id)
         .distance(100))
       .force('charge', d3.forceManyBody().strength(-300))
@@ -67,12 +79,12 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     // Draw edges
     const link = container.append('g')
       .selectAll('line')
-      .data(data.edges)
+      .data(links)
       .enter().append('line')
       .attr('class', 'link')
       .attr('stroke', '#999')
       .attr('stroke-opacity', 0.6)
-      .attr('stroke-width', (d: Edge) => Math.sqrt(d.weight) * 2)
+      .attr('stroke-width', (d: D3Link) => Math.sqrt(d.weight) * 2)
       .attr('marker-end', 'url(#end)');
 
     // Draw nodes
@@ -133,7 +145,7 @@ export const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     };
   }, [data, width, height, onNodeClick]);
 
-  function drag(simulation: d3.Simulation<D3Node, Edge>) {
+  function drag(simulation: d3.Simulation<D3Node, D3Link>) {
     function dragstarted(event: any) {
       if (!event.active) simulation.alphaTarget(0.3).restart();
       event.subject.fx = event.subject.x;

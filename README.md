@@ -1,6 +1,6 @@
 # Social Graph Crawler
 
-A distributed crawling and data-ingestion portfolio project built with FastAPI, PostgreSQL, Redis, and ARQ. It persists crawl jobs and frontier state in PostgreSQL, distributes committed work to independently scalable workers, and demonstrates retries, duplicate protection, failure tracking, and Prometheus metrics.
+A local-first graph-crawling application built with FastAPI, PostgreSQL, Redis, ARQ, React, and D3. It crawls public GitHub, Reddit, and Wikipedia data into a persistent graph and visualizes the resulting nodes and relationships.
 
 ## Architecture
 
@@ -41,30 +41,45 @@ The deterministic fixture proves:
 
 GitHub Codespaces verification has exercised Docker Compose, PostgreSQL, Redis, FastAPI, three workers, migrations, queue delivery, frontier processing, persistence, metrics, and 11 containerized backend tests.
 
-## Run in GitHub Codespaces
+## Run locally
 
-```bash
-./scripts/verify_codespaces.sh
+Install Docker Desktop (with Docker Compose v2). Copy the example environment file before adding optional credentials:
+
+```powershell
+Copy-Item .env.example .env
+docker compose up --build --detach --wait --scale worker=3
 ```
 
-The successful verifier ends with:
+The API is at http://localhost:8000/docs and the UI is at http://localhost:3000. Stop backend services with:
 
-```text
-V2 VERIFY SUCCEEDED:
-API PostgreSQL Redis workers migrations crawl-frontier fixture-retry duplicate-protection persistence metrics tests
-```
-
-FastAPI is available on port 8000 (`/docs` and `/metrics/`). Stop the stack with:
-
-```bash
+```powershell
 docker compose down
 ```
 
+For frontend-only development outside Docker, use Node.js 20+, then run `npm install` and `npm start` from `frontend`.
+
+## Sources and credentials
+
+- **Wikipedia** works without credentials; enter an article title such as `Python (programming language)`.
+- **GitHub** works with public data. Set `GITHUB_TOKEN` in `.env` to avoid the low anonymous rate limit.
+- **Reddit** requires `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET` from a script-type Reddit application. The crawler uses OAuth client credentials and reports a clear job failure when they are absent or rejected.
+- **Fixture** is an offline test source. `v2-demo` exercises successful work, retry behavior, a permanent failure, and duplicate protection.
+
+Each submitted job carries its source, depth, and entity limit into a durable PostgreSQL frontier record. Workers select the crawler matching that source, persist graph nodes/edges, and finalize the job once its frontier is terminal.
+
+## Verification
+
+Backend checks can run without Docker:
+
+```powershell
+& .\.venv\Scripts\python.exe -m pytest backend\tests -q
+```
+
+`scripts/verify_codespaces.sh` remains available for a Linux/WSL Docker verification run.
+
 ## Scope and limitations
 
-This repository demonstrates a small, durable crawling pipeline—not a web-scale crawler. Live GitHub, Reddit, and Wikipedia sources, frontend integration, cloud deployment, and large external workloads are not yet verified.
-
-The React/D3 frontend remains in the source tree but is intentionally excluded from the V2 demo because it does not yet present the frontier workflow.
+This is a small, local application—not a web-scale crawler. Respect source terms of service and rate limits. Crawls intentionally cap depth and entity count, and the UI loads a bounded graph view for responsiveness. Cloud deployment, user accounts, scheduling, and large external workloads are outside this repository's scope.
 
 ## Further reading
 

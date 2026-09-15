@@ -11,7 +11,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onRefresh,
   loading
 }) => {
-  const [source, setSource] = React.useState('reddit');
+  const [source, setSource] = React.useState('wikipedia');
   const [entity, setEntity] = React.useState('');
   const [depth, setDepth] = React.useState(2);
 
@@ -38,6 +38,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             <option value="reddit">Reddit</option>
             <option value="github">GitHub</option>
             <option value="wikipedia">Wikipedia</option>
+            <option value="fixture">Offline fixture</option>
           </select>
         </div>
 
@@ -51,7 +52,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             placeholder={
               source === 'reddit' ? 'subreddit name' :
               source === 'github' ? 'username or owner/repo' :
-              'article title'
+              source === 'wikipedia' ? 'article title' : 'v2-demo or a label'
             }
             disabled={loading}
             required
@@ -87,6 +88,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           <li><strong>Reddit:</strong> Enter a subreddit name (e.g., "python")</li>
           <li><strong>GitHub:</strong> Enter username (e.g., "torvalds") or repo (e.g., "facebook/react")</li>
           <li><strong>Wikipedia:</strong> Enter article title (e.g., "Python_(programming_language)")</li>
+          <li><strong>Offline fixture:</strong> Use <code>v2-demo</code> to test retries and failures without a network connection.</li>
         </ul>
       </div>
     </div>
