@@ -1,6 +1,14 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
+export const normalizeApiBaseUrl = (value?: string): string => {
+  const base = (value || '/api/v1').replace(/\/+$/, '');
+  return base.endsWith('/api/v1') ? base : `${base}/api/v1`;
+};
+
+const API_BASE_URL = normalizeApiBaseUrl(process.env.REACT_APP_API_URL);
+export const apiDocsUrl = API_BASE_URL.startsWith('http')
+  ? `${API_BASE_URL.replace(/\/api\/v1$/, '')}/docs`
+  : '/docs';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -136,7 +144,9 @@ export const listCrawlJobs = async (
 
 // Health check
 export const checkHealth = async () => {
-  const response = await api.get('/health');
+  const response = await axios.get(API_BASE_URL.startsWith('http')
+    ? `${API_BASE_URL.replace(/\/api\/v1$/, '')}/ready`
+    : '/ready');
   return response.data;
 };
 

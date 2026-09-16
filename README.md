@@ -58,6 +58,16 @@ docker compose down
 
 For frontend-only development outside Docker, use Node.js 20+, then run `npm install` and `npm start` from `frontend`.
 
+### Codespaces without Docker
+
+The Codespaces configuration installs a no-Docker fallback automatically and starts Redis, SQLite-backed FastAPI, an ARQ worker, and the React development server. If a running Codespace needs a manual restart, run:
+
+```bash
+scripts/start_codespaces.sh
+```
+
+The UI is forwarded on port 3000 and proxies `/api/v1` and `/docs` to the local API on port 8000. Set `REACT_APP_API_URL` only when the API is hosted elsewhere; both `https://host` and `https://host/api/v1` are accepted.
+
 ## Sources and credentials
 
 - **Wikipedia** works without credentials; enter an article title such as `Python (programming language)`.

@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CrawlJob, GraphData, Node, getCrawlJob, listEdges, listNodes, startCrawl } from './services/api';
+import { CrawlJob, GraphData, Node, checkHealth, getCrawlJob, listEdges, listNodes, startCrawl } from './services/api';
 import { GraphVisualization } from './components/GraphVisualization';
 import './App.css';
+import './status.css';
 
 type View = 'explorer' | 'crawl';
 type Source = 'mastodon' | 'github' | 'wikipedia' | 'fixture';
@@ -31,6 +32,7 @@ function App() {
   const [job, setJob] = useState<CrawlJob | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [apiStatus, setApiStatus] = useState<'checking' | 'connected' | 'offline'>('checking');
   const timerRef = useRef<number | null>(null);
 
   const loadGraphData = async () => {
@@ -44,6 +46,7 @@ function App() {
 
   useEffect(() => {
     loadGraphData();
+    checkHealth().then(() => setApiStatus('connected')).catch(() => setApiStatus('offline'));
     return () => { if (timerRef.current) window.clearInterval(timerRef.current); };
   }, []);
 
@@ -90,7 +93,7 @@ function App() {
 
   const metadata = selectedNode?.metadata || {};
   return <div className="app-shell">
-    <header className="topbar"><button className="brand" onClick={() => setView('explorer')}><b>✦</b> Social Graph Crawler <small>v1.4.2</small></button><div className="workspace-label">⌘ workspace / default</div><label className="global-search">⌕<input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search entities, jobs, handles…" /></label><div className="health-dot"><i /> API connected</div></header>
+    <header className="topbar"><button className="brand" onClick={() => setView('explorer')}><b>✦</b> Social Graph Crawler <small>v1.4.2</small></button><div className="workspace-label">⌘ workspace / default</div><label className="global-search">⌕<input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search entities, jobs, handles…" /></label><div className={`health-dot ${apiStatus}`}><i /> {apiStatus === 'connected' ? 'API connected' : apiStatus === 'offline' ? 'API offline' : 'Checking API'}</div></header>
     <aside className="app-nav"><button className="primary-button nav-new" onClick={() => setView('crawl')}>＋ New Crawl</button><p>EXPLORATION</p><button className={view === 'explorer' ? 'nav-item active' : 'nav-item'} onClick={() => setView('explorer')}>⌘ Explore Graph</button><button className="nav-item" disabled>♧ Saved Views</button><p>OPERATIONS</p><button className="nav-item" onClick={() => setView('explorer')}>◷ Crawl History {job && <em>{job.status}</em>}</button><p>CONFIGURATION</p><button className="nav-item" disabled>⚿ Sources & Credentials</button><button className="nav-item" disabled>⚙ Workspace Settings</button><div className="nav-footer"><strong>Social Graph Crawler</strong><span>Public-data graph explorer</span><a href="/docs" target="_blank" rel="noreferrer">API documentation ↗</a></div></aside>
     <main className="workspace">
       {error && <div className="notice error"><b>!</b><span>{error}</span><button onClick={() => setError(null)}>×</button></div>}

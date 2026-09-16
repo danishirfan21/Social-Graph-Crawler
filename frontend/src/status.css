@@ -1,0 +1,3 @@
+.health-dot i { background: #fbbf24; }
+.health-dot.connected i { background: var(--success); }
+.health-dot.offline i { background: var(--danger); }

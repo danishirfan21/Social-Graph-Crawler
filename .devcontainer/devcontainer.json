@@ -2,13 +2,16 @@
   "name": "Social Graph Crawler",
   "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
   "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/node:1": { "version": "20" }
   },
-  "forwardPorts": [8000, 5432, 6379],
+  "forwardPorts": [3000, 8000, 5432, 6379],
   "portsAttributes": {
+    "3000": { "label": "Social Graph UI", "onAutoForward": "openBrowser" },
     "8000": { "label": "FastAPI", "onAutoForward": "notify" },
     "5432": { "label": "PostgreSQL", "onAutoForward": "silent" },
     "6379": { "label": "Redis", "onAutoForward": "silent" }
   },
-  "postCreateCommand": "chmod +x scripts/verify_codespaces.sh"
+  "postCreateCommand": "chmod +x scripts/*.sh && scripts/bootstrap_codespaces.sh && scripts/start_codespaces.sh",
+  "postStartCommand": "scripts/start_codespaces.sh"
 }
